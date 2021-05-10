@@ -130,14 +130,22 @@ def get_sampled_subset(df_ret, n):
     return df_ret.sample(n, random_state=42, axis=1)
 
 
-def get_last_trading_date(month=None):
+def get_trading_dates(by='all', month=None):
     cal = pd.DataFrame(get_data('ff', 'd').date)
+    if by == 'all':
+        return cal.date.to_list()
+
     cal['year-month'] = cal.date.apply(lambda x: x[:7])
     cal['date'] = cal.date.apply(lambda x: x[8:])
-    cal = cal.groupby('year-month').max()
+    if by == 'first':
+        cal = cal.groupby('year-month').min()
+    elif by == 'last':
+        cal = cal.groupby('year-month').max()
+    else:
+        raise ValueError
     cal = list(cal.index.values + '-' + cal.date.values)
 
     if month is not None:
-        return [_ for _ in cal if _[5:7] == f"{month:02}"]
+        return [_ for _ in cal if _[5:7] == f'{month:02}']
 
     return cal
