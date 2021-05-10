@@ -7,11 +7,12 @@ START_DATE = '1990-01-01'
 END_DATE = '2021-03-31'
 
 
-def get_raw_data(source, freq):
+def get_raw_data(source, freq, verbose=True):
     if source == 'crsp':
         if not Path(f'data/crsp_{freq}.h5').is_file():
-            print(f'No cache found at data/crsp_{freq}.h5')
-            print(f'Loading from WRDS...')
+            if verbose:
+                print(f'No cache found at data/crsp_{freq}.h5')
+                print(f'Loading from WRDS...')
             db = wrds.Connection(wrds_username='realethanzou')
             df = db.raw_sql(
                 f"select permno, date, prc, vol, ret, shrout, cfacpr from crspq.{freq}sf where date between {START_DATE} and {END_DATE}")
@@ -26,19 +27,22 @@ def get_raw_data(source, freq):
             df['dolvol'] = df.prc * df.vol
             df['cap'] = df.prc * df.shrout
             df = df.drop(['shrout', 'cfacpr'], axis=1)
-            print(f"Saving cache to data/crsp_{freq}.h5 for key='raw'")
+            if verbose:
+                print(f"Saving cache to data/crsp_{freq}.h5 for key='raw'")
             df.to_hdf(f'data/crsp_{freq}.h5', key='raw')
 
             return df
 
         else:
-            print(f"Loading cache from data/crsp_{freq}.h5 for key='raw'")
+            if verbose:
+                print(f"Loading cache from data/crsp_{freq}.h5 for key='raw'")
             return pd.read_hdf(f'data/crsp_{freq}.h5', key='raw')
 
     elif source == 'ff':
         if not Path(f'data/ff_{freq}.h5').is_file():
-            print(f'No cache found at data/ff_{freq}.h5')
-            print(f'Loading from WRDS...')
+            if verbose:
+                print(f'No cache found at data/ff_{freq}.h5')
+                print(f'Loading from WRDS...')
             if freq == 'm':
                 label = 'monthly'
             elif freq == 'd':
@@ -54,34 +58,42 @@ def get_raw_data(source, freq):
                 df.date = df.date.apply(lambda x: x.strftime('%Y-%m'))
             elif freq == 'd':
                 df.date = df.date.apply(lambda x: x.strftime('%Y-%m-%d'))
-            print(f"Saving cache to data/ff_{freq}.h5 for key='raw'")
+            if verbose:
+                print(f"Saving cache to data/ff_{freq}.h5 for key='raw'")
             df.to_hdf(f'data/ff_{freq}.h5', key='raw')
 
             return df
 
         else:
-            print(f"Loading cache from data/ff_{freq}.h5 for key='raw'")
+            if verbose:
+                print(f"Loading cache from data/ff_{freq}.h5 for key='raw'")
+
             return pd.read_hdf(f'data/ff_{freq}.h5', key='raw')
 
     else:
         raise ValueError
 
 
-def get_data(source, freq, key='raw'):
+def get_data(source, freq, key='raw', verbose=True):
     if source == 'crsp':
         if not Path(f'data/crsp_{freq}.h5').is_file():
             get_raw_data(source, freq)
 
         try:
-            print(f"Loading cache from data/crsp_{freq}.h5 for key='{key}'")
+            if verbose:
+                print(f"Loading cache from data/crsp_{freq}.h5 for key='{key}'")
+
             return pd.read_hdf(f'data/crsp_{freq}.h5', key=key)
 
         except KeyError:
-            print(f"No cache found at data/crsp_{freq}.h5 for key='{key}'")
+            if verbose:
+                print(f"No cache found at data/crsp_{freq}.h5 for key='{key}'")
+
             if key in ['ret', 'acprc', 'dolvol', 'cap']:
                 df = pd.read_hdf(f'data/crsp_{freq}.h5', 'raw')[['permno', 'date', key]]
                 df = df.pivot('date', 'permno', key)
-                print(f"Saving cache to data/crsp_{freq}.h5 for key='{key}'")
+                if verbose:
+                    print(f"Saving cache to data/crsp_{freq}.h5 for key='{key}'")
                 df.to_hdf(f'data/crsp_{freq}.h5', key=key)
 
                 return df
@@ -93,7 +105,9 @@ def get_data(source, freq, key='raw'):
         if not Path(f'data/ff_{freq}.h5').is_file():
             get_raw_data(source, freq)
 
-        print(f"Loading cache from data/ff_{freq}.h5 for key='{key}'")
+        if verbose:
+            print(f"Loading cache from data/ff_{freq}.h5 for key='{key}'")
+
         return pd.read_hdf(f'data/ff_{freq}.h5', key=key)
 
     else:
@@ -131,7 +145,7 @@ def get_sampled_subset(df_ret, n):
 
 
 def get_trading_dates(by='all', month=None):
-    cal = pd.DataFrame(get_data('ff', 'd').date)
+    cal = pd.DataFrame(get_data('ff', 'd', verbose=False).date)
     if by == 'all':
         return cal.date.to_list()
 
