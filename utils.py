@@ -118,12 +118,12 @@ def get_valid_subset(df_ret, df_acprc, df_dolvol, df_cap, base, before, after):
     mask = mask[dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()]
 
     cap = get_subset(df_cap, base, before, after)
-    cap = dolvol[cap > 0].dropna(axis=1)
+    cap = cap[cap > 0].dropna(axis=1)
     mask = mask[cap.ge(cap.quantile(0.2, axis=1), axis=0).all()]
 
-    valid_pmo = mask[mask].index.to_list()
+    valid_permno = mask[mask].index.to_list()
 
-    return get_subset(df_ret, base, before, after)[valid_pmo].dropna(axis=1)
+    return get_subset(df_ret, base, before, after)[valid_permno].dropna(axis=1)
 
 
 def get_sampled_subset(df_ret, n):
@@ -131,8 +131,11 @@ def get_sampled_subset(df_ret, n):
 
 
 def get_last_trading_date(month=None):
-    cal = pd.Series(0, index=pd.to_datetime(get_data('ff', 'd').date))
-    cal = cal.groupby(pd.Grouper(freq="M")).sum().index.strftime('%Y-%m-%d').values
+    cal = pd.DataFrame(get_data('ff', 'd').date)
+    cal['year-month'] = cal.date.apply(lambda x: x[:7])
+    cal['date'] = cal.date.apply(lambda x: x[8:])
+    cal = cal.groupby('year-month').max()
+    cal = list(cal.index.values + '-' + cal.date.values)
 
     if month is not None:
         return [_ for _ in cal if _[5:7] == f"{month:02}"]
