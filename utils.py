@@ -26,13 +26,13 @@ def get_raw_data(source, freq):
             df['dolvol'] = df.prc * df.vol
             df['cap'] = df.prc * df.shrout
             df = df.drop(['shrout', 'cfacpr'], axis=1)
-            print(f'Saving cache to data/crsp_{freq}.h5')
+            print(f"Saving cache to data/crsp_{freq}.h5 for key='raw'")
             df.to_hdf(f'data/crsp_{freq}.h5', key='raw')
 
             return df
 
         else:
-            print(f'Loading cache from data/crsp_{freq}.h5')
+            print(f"Loading cache from data/crsp_{freq}.h5 for key='raw'")
             return pd.read_hdf(f'data/crsp_{freq}.h5', key='raw')
 
     elif source == 'ff':
@@ -54,13 +54,13 @@ def get_raw_data(source, freq):
                 df.date = df.date.apply(lambda x: x.strftime('%Y-%m'))
             elif freq == 'd':
                 df.date = df.date.apply(lambda x: x.strftime('%Y-%m-%d'))
-            print(f'Saving cache to data/ff_{freq}.h5')
+            print(f"Saving cache to data/ff_{freq}.h5 for key='raw'")
             df.to_hdf(f'data/ff_{freq}.h5', key='raw')
 
             return df
 
         else:
-            print(f'Loading cache from data/ff_{freq}.h5')
+            print(f"Loading cache from data/ff_{freq}.h5 for key='raw'")
             return pd.read_hdf(f'data/ff_{freq}.h5', key='raw')
 
     else:
@@ -73,15 +73,15 @@ def get_data(source, freq, key='raw'):
             get_raw_data(source, freq)
 
         try:
-            print(f'Loading cache from data/crsp_{freq}.h5')
+            print(f"Loading cache from data/crsp_{freq}.h5 for key='{key}'")
             return pd.read_hdf(f'data/crsp_{freq}.h5', key=key)
 
         except KeyError:
-            print(f'No cache found at data/crsp_{freq}.h5')
+            print(f"No cache found at data/crsp_{freq}.h5 for key='{key}'")
             if key in ['ret', 'acprc', 'dolvol', 'cap']:
                 df = pd.read_hdf(f'data/crsp_{freq}.h5', 'raw')[['permno', 'date', key]]
                 df = df.pivot('date', 'permno', key)
-                print(f'Saving cache to data/crsp_{freq}.h5')
+                print(f"Saving cache to data/crsp_{freq}.h5 for key='{key}'")
                 df.to_hdf(f'data/crsp_{freq}.h5', key=key)
 
                 return df
@@ -93,8 +93,34 @@ def get_data(source, freq, key='raw'):
         if not Path(f'data/ff_{freq}.h5').is_file():
             get_raw_data(source, freq)
 
-        print(f'Loading cache from data/crsp_{freq}.h5')
+        print(f"Loading cache from data/crsp_{freq}.h5 for key='{key}'")
         return pd.read_hdf(f'data/ff_{freq}.h5', key=key)
 
     else:
         raise ValueError
+
+
+def get_subset(df, base, before, after):
+    base_idx = df.index.get_loc(base)
+    from_idx = base_idx - before + 1
+    to_idx = base_idx + after + 1
+    assert from_idx >= 0 and to_idx <= len(df)
+
+    return df.iloc[from_idx: to_idx]
+
+
+def get_valid_subset(df_ret, df_acprc, df_dolvol, df_cap, base, before, after):
+    mask = pd.Series(True, df_ret.columns)
+    mask = mask[(get_subset(df_acprc, base, before, after) >= 5).all()]
+
+    dolvol = get_subset(df_dolvol, base, before, after)
+    dolvol = dolvol[dolvol > 0].dropna(axis=1)
+    mask = mask[dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()]
+
+    cap = get_subset(df_cap, base, before, after)
+    cap = dolvol[cap > 0].dropna(axis=1)
+    mask = mask[cap.ge(cap.quantile(0.2, axis=1), axis=0).all()]
+
+    valid_pmo = mask[mask].index.to_list()
+
+    return get_subset(df_ret, base, before, after)[valid_pmo].dropna(axis=1)
