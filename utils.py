@@ -44,7 +44,7 @@ def get_raw_data(source, freq):
             elif freq == 'd':
                 label = 'daily'
             else:
-                raise KeyError
+                raise ValueError
             db = wrds.Connection(wrds_username='realethanzou')
             df = db.raw_sql(
                 f"select date, mktrf, smb, hml, rf, umd from ff.factors_{label} where date between {START_DATE} and {END_DATE}")
@@ -64,7 +64,7 @@ def get_raw_data(source, freq):
             return pd.read_hdf(f'data/ff_{freq}.h5', key='raw')
 
     else:
-        raise KeyError
+        raise ValueError
 
 
 def get_data(source, freq, key='raw'):
@@ -87,7 +87,7 @@ def get_data(source, freq, key='raw'):
                 return df
 
             else:
-                raise KeyError
+                raise ValueError
 
     elif source == 'ff':
         if not Path(f'data/ff_{freq}.h5').is_file():
@@ -97,4 +97,4 @@ def get_data(source, freq, key='raw'):
         return pd.read_hdf(f'data/ff_{freq}.h5', key=key)
 
     else:
-        raise KeyError
+        raise ValueError
