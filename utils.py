@@ -93,7 +93,7 @@ def get_data(source, freq, key='raw'):
         if not Path(f'data/ff_{freq}.h5').is_file():
             get_raw_data(source, freq)
 
-        print(f"Loading cache from data/crsp_{freq}.h5 for key='{key}'")
+        print(f"Loading cache from data/ff_{freq}.h5 for key='{key}'")
         return pd.read_hdf(f'data/ff_{freq}.h5', key=key)
 
     else:
