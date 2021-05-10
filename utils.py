@@ -126,6 +126,10 @@ def get_valid_subset(df_ret, df_acprc, df_dolvol, df_cap, base, before, after):
     return get_subset(df_ret, base, before, after)[valid_pmo].dropna(axis=1)
 
 
+def get_sampled_subset(df_ret, n):
+    return df_ret.sample(n, random_state=42, axis=1)
+
+
 def get_last_trading_date(month=None):
     cal = pd.Series(0, index=pd.to_datetime(get_data('ff', 'd').date))
     cal = cal.groupby(pd.Grouper(freq="M")).sum().index.strftime('%Y-%m-%d').values
