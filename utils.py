@@ -141,7 +141,7 @@ def get_valid_subset(df_ret, df_acprc, df_dolvol, df_cap, base, before, after):
 
 
 def get_sampled_subset(df_ret, n):
-    return df_ret.sample(n, random_state=42, axis=1)
+    return df_ret.sample(n, random_state=42, axis=1).sort_index(axis=1)
 
 
 def get_trading_dates(by='all', month=None):
