@@ -15,7 +15,7 @@ def get_raw_data(source, freq, verbose=True):
                 print(f'Loading from WRDS...')
             db = wrds.Connection(wrds_username='realethanzou')
             df = db.raw_sql(
-                f"select permno, date, prc, vol, ret, shrout, cfacpr from crspq.{freq}sf where date between {START_DATE} and {END_DATE}")
+                f"select permno, date, prc, vol, ret, shrout, cfacpr from crspq.{freq}sf where date between '{START_DATE}' and '{END_DATE}'")
             db.close()
 
             df.permno = df.permno.astype(int)
@@ -51,7 +51,7 @@ def get_raw_data(source, freq, verbose=True):
                 raise ValueError
             db = wrds.Connection(wrds_username='realethanzou')
             df = db.raw_sql(
-                f"select date, mktrf, smb, hml, rf, umd from ff.factors_{label} where date between {START_DATE} and {END_DATE}")
+                f"select date, mktrf, smb, hml, rf, umd from ff.factors_{label} where date between '{START_DATE}' and '{END_DATE}'")
             db.close()
 
             if freq == 'm':
