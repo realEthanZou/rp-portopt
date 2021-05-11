@@ -124,8 +124,9 @@ def get_subset(df, base, before, after):
 
 
 def get_valid_subset(df_ret, df_acprc, df_dolvol, df_cap, base, before, after):
-    mask = pd.Series(True, df_ret.columns)
-    mask = mask[(get_subset(df_acprc, base, before, after) >= 5).all()]
+    acprc = get_subset(df_acprc, base, before, after)
+    acprc = acprc[acprc > 0].dropna(axis=1)
+    mask = acprc.ge(acprc.quantile(0.1, axis=1), axis=0).all()
 
     dolvol = get_subset(df_dolvol, base, before, after)
     dolvol = dolvol[dolvol > 0].dropna(axis=1)
