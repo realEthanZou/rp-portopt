@@ -169,6 +169,13 @@ def get_trading_dates(by='all', year=None, month=None):
     :param month: filter certain month
     :return: list of trading date string(s)
     """
+    if not Path(f'data/cal.csv').is_file():
+        cal = pd.DataFrame({'full': get_data('ff', 'd', verbose=False).date})
+        cal.to_csv('data/cal.csv')
+
+    else:
+        cal = pd.read_csv(f'data/cal.csv', index_col=0)
+
     if year is not None:
         year = int(year)
         assert int(START_DATE[:4]) <= year <= int(END_DATE[:4])
@@ -179,7 +186,6 @@ def get_trading_dates(by='all', year=None, month=None):
         assert 1 <= month <= 12
         month = f'{month:02}'
 
-    cal = pd.DataFrame({'full': get_data('ff', 'd', verbose=False).date})
     cal['year'] = cal.full.apply(lambda x: x[:4])
     cal['month'] = cal.full.apply(lambda x: x[5:7])
     cal['date'] = cal.full.apply(lambda x: x[8:])
