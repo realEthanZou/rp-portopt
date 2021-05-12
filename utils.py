@@ -145,22 +145,39 @@ def get_sampled_subset(df_ret, n):
     return df_ret.sample(n, random_state=42, axis=1).sort_index(axis=1)
 
 
-def get_trading_dates(by='all', month=None):
-    cal = pd.DataFrame(get_data('ff', 'd', verbose=False).date)
-    if by == 'all':
-        return cal.date.to_list()
-
-    cal['year-month'] = cal.date.apply(lambda x: x[:7])
-    cal['date'] = cal.date.apply(lambda x: x[8:])
-    if by == 'first':
-        cal = cal.groupby('year-month').min()
-    elif by == 'last':
-        cal = cal.groupby('year-month').max()
-    else:
-        raise ValueError
-    cal = list(cal.index.values + '-' + cal.date.values)
+def get_trading_dates(by='all', year=None, month=None):
+    if year is not None:
+        year = int(year)
+        assert int(START_DATE[:4]) <= year <= int(END_DATE[:4])
+        year = str(year)
 
     if month is not None:
-        return [_ for _ in cal if _[5:7] == f'{month:02}']
+        month = int(month)
+        assert 1 <= month <= 12
+        month = f'{month:02}'
 
-    return cal
+    cal = pd.DataFrame({'full': get_data('ff', 'd', verbose=False).date})
+    cal['year'] = cal.full.apply(lambda x: x[:4])
+    cal['month'] = cal.full.apply(lambda x: x[5:7])
+    cal['date'] = cal.full.apply(lambda x: x[8:])
+
+    if by == 'all':
+        pass
+    elif by == 'first':
+        cal = cal.groupby(['year', 'month']).min()
+    elif by == 'last':
+        cal = cal.groupby(['year', 'month']).max()
+    else:
+        raise ValueError
+
+    if year is None and month is None:
+        return cal.full.to_list()
+
+    elif year is not None and month is None:
+        return cal.query("year == @year").full.to_list()
+
+    elif year is None and month is not None:
+        return cal.query("month == @month").full.to_list()
+
+    else:
+        return cal.query("year == @year and month == @month").full.to_list()
