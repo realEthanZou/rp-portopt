@@ -8,6 +8,13 @@ END_DATE = '2021-03-31'
 
 
 def get_raw_data(source, freq, verbose=True):
+    """
+    Helper function to get data from WRDS
+    :param source: wrds library name
+    :param freq: 'm': monthly or 'd': daily
+    :param verbose: whether print information
+    :return: dataframe
+    """
     if source == 'crsp':
         if not Path(f'data/crsp_{freq}.h5').is_file():
             if verbose:
@@ -77,6 +84,14 @@ def get_raw_data(source, freq, verbose=True):
 
 
 def get_data(source, freq, key='raw', verbose=True):
+    """
+    Helper function to get data and handle cache
+    :param source: wrds library name
+    :param freq: 'm': monthly or 'd': daily
+    :param key: key for cached data
+    :param verbose: whether print information
+    :return: dataframe
+    """
     if source == 'crsp':
         if not Path(f'data/crsp_{freq}.h5').is_file():
             get_raw_data(source, freq)
@@ -147,6 +162,13 @@ def get_sampled_subset(df_ret, n):
 
 
 def get_trading_dates(by='all', year=None, month=None):
+    """
+    Helper funtion to get trading dates
+    :param by: 'all' or 'first' or 'last' trading date(s) of filtered month(s)
+    :param year: filter certain year
+    :param month: filter certain month
+    :return: list of trading date string(s)
+    """
     if year is not None:
         year = int(year)
         assert int(START_DATE[:4]) <= year <= int(END_DATE[:4])
