@@ -20,10 +20,7 @@ def gen_ret_data(year, month, day, before, after, rolling_freq):
         ret = ret_master[universe]
 
         if freq == 'm':
-            months_before = list(dict.fromkeys([x[:7] for x in period_before]))
-            months_after = list(dict.fromkeys([x[:7] for x in period_after]))
+            period_before = list(dict.fromkeys([x[:7] for x in period_before]))
+            period_after = list(dict.fromkeys([x[:7] for x in period_after]))
 
-            yield ret.query("date in @months_before"), ret.query("date in @months_after")
-
-        else:
-            yield ret.query("date in @period_before"), ret.query("date in @period_after")
+        yield ret.query("date in @period_before"), ret.query("date in @period_after")
