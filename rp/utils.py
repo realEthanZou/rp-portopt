@@ -132,7 +132,7 @@ def get_data(source, freq, key='raw', verbose=True):
 
 
 def get_raw_trading_dates():
-    if not Path(f"data/cal.csv").is_file():
+    if not Path('data/cal.csv').is_file():
         cal = pd.DataFrame({'full': get_data('ff', 'd', verbose=False).date})
         cal['year'] = cal.full.apply(lambda x: int(x[:4]))
         cal['month'] = cal.full.apply(lambda x: int(x[5:7]))
@@ -142,7 +142,7 @@ def get_raw_trading_dates():
         return cal
 
     else:
-        return pd.read_csv(f"data/cal.csv", index_col=0)
+        return pd.read_csv('data/cal.csv', index_col=0)
 
 
 def _is_date_valid(cal, year, month, day):
@@ -284,7 +284,7 @@ def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_freq=0):
 
 
 def get_universe():
-    if not Path(f"data/universe.h5").is_file():
+    if not Path('data/universe.h5').is_file():
         acprcm = get_data('crsp', 'm', 'acprc', verbose=False)
         dolvolm = get_data('crsp', 'm', 'dolvol', verbose=False)
         capm = get_data('crsp', 'm', 'cap', verbose=False)
@@ -310,9 +310,9 @@ def get_universe():
                                       name=universe_start))
 
         universe = pd.concat(universe, axis=1)
-        universe.to_hdf(f"data/universe.h5", key='default')
+        universe.to_hdf('data/universe.h5', key='default')
 
         return universe
 
     else:
-        return pd.read_hdf(f"data/universe.h5", key='default')
+        return pd.read_hdf('data/universe.h5', key='default')
