@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import wrds
 
@@ -130,37 +131,6 @@ def get_data(source, freq, key='raw', verbose=True):
         raise ValueError
 
 
-def get_subset(df, base, before, after):
-    base_idx = df.index.get_loc(base)
-    from_idx = base_idx - before + 1
-    to_idx = base_idx + after + 1
-    assert from_idx >= 0 and to_idx <= len(df)
-
-    return df.iloc[from_idx: to_idx]
-
-
-def get_valid_subset(df_ret, df_acprc, df_dolvol, df_cap, base, before, after):
-    acprc = get_subset(df_acprc, base, before, after)
-    acprc = acprc[acprc > 0].dropna(axis=1)
-    mask = acprc.ge(acprc.quantile(0.1, axis=1), axis=0).all()
-
-    dolvol = get_subset(df_dolvol, base, before, after)
-    dolvol = dolvol[dolvol > 0].dropna(axis=1)
-    mask = mask[dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()]
-
-    cap = get_subset(df_cap, base, before, after)
-    cap = cap[cap > 0].dropna(axis=1)
-    mask = mask[cap.ge(cap.quantile(0.2, axis=1), axis=0).all()]
-
-    valid_permno = mask[mask].index.to_list()
-
-    return get_subset(df_ret, base, before, after)[valid_permno].dropna(axis=1)
-
-
-def get_sampled_subset(df_ret, n):
-    return df_ret.sample(n, random_state=42, axis=1).sort_index(axis=1)
-
-
 def get_raw_trading_dates():
     if not Path(f"data/cal.csv").is_file():
         cal = pd.DataFrame({'full': get_data('ff', 'd', verbose=False).date})
@@ -252,7 +222,8 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
                 else:
                     base_idx, to_idx = to_indices[0] - 1, to_indices[-1]
 
-                return cal_orig[from_idx: base_idx + 1].full.to_list(), cal_orig[base_idx + 1: to_idx + 1].full.to_list()
+                return cal_orig[from_idx: base_idx + 1].full.to_list(), \
+                       cal_orig[base_idx + 1: to_idx + 1].full.to_list()
 
         else:
             if before == 0 and after == 0:
@@ -268,10 +239,10 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
                 return cal[from_idx: base_idx + 1].full.to_list(), cal[base_idx + 1: to_idx + 1].full.to_list()
 
 
-def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_period=0):
+def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_freq=0):
     cal = get_raw_trading_dates()
     year, month, day = _is_date_valid(cal, year, month, day)
-    assert before != 0 or after != 0 and rolling_period != 0
+    assert before != 0 or after != 0 and rolling_freq != 0
 
     if day is None:
         cal_orig = cal.copy()
@@ -295,7 +266,7 @@ def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_period=0
 
             yield cal_orig[from_idx: split_idx + 1].full.to_list(), cal_orig[split_idx + 1: to_idx + 1].full.to_list()
 
-            base_idx += rolling_period
+            base_idx += rolling_freq
             from_idx = base_idx - before + 1
             to_idx = base_idx + after
 
@@ -307,6 +278,41 @@ def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_period=0
         while from_idx >= 0 and to_idx < len(cal):
             yield cal[from_idx: base_idx + 1].full.to_list(), cal[base_idx + 1: to_idx + 1].full.to_list()
 
-            base_idx += rolling_period
+            base_idx += rolling_freq
             from_idx = base_idx - before + 1
             to_idx = base_idx + after
+
+
+def get_universe():
+    if not Path(f"data/universe.h5").is_file():
+        acprcm = get_data('crsp', 'm', 'acprc', verbose=False)
+        dolvolm = get_data('crsp', 'm', 'dolvol', verbose=False)
+        capm = get_data('crsp', 'm', 'cap', verbose=False)
+
+        universe = []
+        for period in gen_trading_dates(year=2001, month=3, before=60, after=12, rolling_freq=12):
+            period = list(dict.fromkeys([x[:7] for x in period[0] + period[1]]))
+
+            acprc = acprcm.query("date in @period")
+            acprc = acprc[acprc > 0].dropna(axis=1)
+            mask = acprc.ge(acprc.quantile(0.1, axis=1), axis=0).all()
+
+            dolvol = dolvolm.query("date in @period")
+            dolvol = dolvol[dolvol > 0].dropna(axis=1)
+            mask = mask[dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()]
+
+            cap = capm.query("date in @period")
+            cap = cap[cap > 0].dropna(axis=1)
+            mask = mask[cap.ge(cap.quantile(0.2, axis=1), axis=0).all()]
+
+            universe_start = period[-1][:5] + '04'
+            universe.append(pd.Series(np.sort(mask[mask].sample(500, random_state=42).index.to_list()),
+                                      name=universe_start))
+
+        universe = pd.concat(universe, axis=1)
+        universe.to_hdf(f"data/universe.h5", key='default')
+
+        return universe
+
+    else:
+        return pd.read_hdf(f"data/universe.h5", key='default')
