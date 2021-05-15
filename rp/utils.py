@@ -210,17 +210,12 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
                 to_idx = base_idx + after
                 assert from_idx >= 0 and to_idx < len(cal)
 
-                from_year = cal.iloc[from_idx].year
-                from_month = cal.iloc[from_idx].month
-                to_year = cal.iloc[to_idx].year
-                to_month = cal.iloc[to_idx].month
-                from_idx = cal_orig.query("year == @from_year and month == @from_month").index[0]
-                to_indices = cal_orig.query("year == @to_year and month == @to_month").index
-
-                if after == 0:
-                    base_idx, to_idx = to_indices[-1], to_indices[-1]
-                else:
-                    base_idx, to_idx = to_indices[0] - 1, to_indices[-1]
+                from_idx = cal_orig.query(
+                    "year == @cal.iloc[@from_idx].year and month == @cal.iloc[@from_idx].month").index[0]
+                base_idx = cal_orig.query(
+                    "year == @cal.iloc[@base_idx].year and month == @cal.iloc[@base_idx].month").index[-1]
+                to_idx = cal_orig.query(
+                    "year == @cal.iloc[@to_idx].year and month == @cal.iloc[@to_idx].month").index[-1]
 
                 return cal_orig[from_idx: base_idx + 1].full.to_list(), \
                        cal_orig[base_idx + 1: to_idx + 1].full.to_list()
@@ -252,17 +247,12 @@ def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_freq=0):
         to_idx = base_idx + after
 
         while from_idx >= 0 and to_idx < len(cal):
-            from_year = cal.iloc[from_idx].year
-            from_month = cal.iloc[from_idx].month
-            to_year = cal.iloc[to_idx].year
-            to_month = cal.iloc[to_idx].month
-            from_idx = cal_orig.query("year == @from_year and month == @from_month").index[0]
-            to_indices = cal_orig.query("year == @to_year and month == @to_month").index
-
-            if after == 0:
-                split_idx, to_idx = to_indices[-1], to_indices[-1]
-            else:
-                split_idx, to_idx = to_indices[0] - 1, to_indices[-1]
+            from_idx = cal_orig.query(
+                "year == @cal.iloc[@from_idx].year and month == @cal.iloc[@from_idx].month").index[0]
+            split_idx = cal_orig.query(
+                "year == @cal.iloc[@base_idx].year and month == @cal.iloc[@base_idx].month").index[-1]
+            to_idx = cal_orig.query(
+                "year == @cal.iloc[@to_idx].year and month == @cal.iloc[@to_idx].month").index[-1]
 
             yield cal_orig[from_idx: split_idx + 1].full.to_list(), cal_orig[split_idx + 1: to_idx + 1].full.to_list()
 
@@ -290,8 +280,8 @@ def get_universe():
         capm = get_data('crsp', 'm', 'cap', verbose=False)
 
         universe = []
-        for period in gen_trading_dates(year=2001, month=3, before=60, after=12, rolling_freq=12):
-            period = list(dict.fromkeys([x[:7] for x in period[0] + period[1]]))
+        for period_before, period_after in gen_trading_dates(year=2001, month=3, before=60, after=12, rolling_freq=12):
+            period = list(dict.fromkeys([x[:7] for x in period_before + period_after]))
 
             acprc = acprcm.query("date in @period")
             acprc = acprc[acprc > 0].dropna(axis=1)
@@ -305,9 +295,8 @@ def get_universe():
             cap = cap[cap > 0].dropna(axis=1)
             mask = mask[cap.ge(cap.quantile(0.2, axis=1), axis=0).all()]
 
-            universe_start = period[-1][:5] + '04'
             universe.append(pd.Series(np.sort(mask[mask].sample(500, random_state=42).index.to_list()),
-                                      name=universe_start))
+                                      name=period_after[0][:7]))
 
         universe = pd.concat(universe, axis=1)
         universe.to_hdf('data/universe.h5', key='default')
