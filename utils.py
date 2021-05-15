@@ -161,7 +161,7 @@ def get_sampled_subset(df_ret, n):
     return df_ret.sample(n, random_state=42, axis=1).sort_index(axis=1)
 
 
-def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after=0):
+def get_raw_trading_dates():
     if not Path(f"data/cal.csv").is_file():
         cal = pd.DataFrame({'full': get_data('ff', 'd', verbose=False).date})
         cal['year'] = cal.full.apply(lambda x: int(x[:4]))
@@ -169,9 +169,13 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
         cal['day'] = cal.full.apply(lambda x: int(x[8:]))
         cal.to_csv('data/cal.csv')
 
-    else:
-        cal = pd.read_csv(f"data/cal.csv", index_col=0)
+        return cal
 
+    else:
+        return pd.read_csv(f"data/cal.csv", index_col=0)
+
+
+def _is_date_valid(cal, year, month, day):
     if year is not None:
         assert isinstance(year, (int, str))
         year = int(year)
@@ -187,6 +191,12 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
         day = int(day)
         assert len(cal.query("year == @year and month == @month and day == @day")) == 1
 
+    return year, month, day
+
+
+def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after=0):
+    cal = get_raw_trading_dates()
+    year, month, day = _is_date_valid(cal, year, month, day)
     assert before >= 0 and after >= 0
 
     if by == 'all':
@@ -228,7 +238,8 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
                 base_idx = cal.query("year == @year and month == @month").index[0]
                 from_idx = base_idx - before + 1
                 to_idx = base_idx + after
-                assert from_idx >= 0 and to_idx <= len(cal)
+                assert from_idx >= 0 and to_idx < len(cal)
+
                 from_year = cal.iloc[from_idx].year
                 from_month = cal.iloc[from_idx].month
                 to_year = cal.iloc[to_idx].year
@@ -241,8 +252,7 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
                 else:
                     base_idx, to_idx = to_indices[0] - 1, to_indices[-1]
 
-                return cal_orig[from_idx: base_idx + 1].full.to_list(), \
-                       cal_orig[base_idx + 1: to_idx + 1].full.to_list()
+                return cal_orig[from_idx: base_idx + 1].full.to_list(), cal_orig[base_idx + 1: to_idx + 1].full.to_list()
 
         else:
             if before == 0 and after == 0:
@@ -253,6 +263,50 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
                 base_idx = cal.query("year == @year and month == @month and day == @day").index[0]
                 from_idx = base_idx - before + 1
                 to_idx = base_idx + after
-                assert from_idx >= 0 and to_idx <= len(cal)
+                assert from_idx >= 0 and to_idx < len(cal)
 
                 return cal[from_idx: base_idx + 1].full.to_list(), cal[base_idx + 1: to_idx + 1].full.to_list()
+
+
+def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_period=0):
+    cal = get_raw_trading_dates()
+    year, month, day = _is_date_valid(cal, year, month, day)
+    assert before != 0 or after != 0 and rolling_period != 0
+
+    if day is None:
+        cal_orig = cal.copy()
+        cal = cal.groupby(['year', 'month']).max().reset_index()
+        base_idx = cal.query("year == @year and month == @month").index[0]
+        from_idx = base_idx - before + 1
+        to_idx = base_idx + after
+
+        while from_idx >= 0 and to_idx < len(cal):
+            from_year = cal.iloc[from_idx].year
+            from_month = cal.iloc[from_idx].month
+            to_year = cal.iloc[to_idx].year
+            to_month = cal.iloc[to_idx].month
+            from_idx = cal_orig.query("year == @from_year and month == @from_month").index[0]
+            to_indices = cal_orig.query("year == @to_year and month == @to_month").index
+
+            if after == 0:
+                split_idx, to_idx = to_indices[-1], to_indices[-1]
+            else:
+                split_idx, to_idx = to_indices[0] - 1, to_indices[-1]
+
+            yield cal_orig[from_idx: split_idx + 1].full.to_list(), cal_orig[split_idx + 1: to_idx + 1].full.to_list()
+
+            base_idx += rolling_period
+            from_idx = base_idx - before + 1
+            to_idx = base_idx + after
+
+    else:
+        base_idx = cal.query("year == @year and month == @month and day == @day").index[0]
+        from_idx = base_idx - before + 1
+        to_idx = base_idx + after
+
+        while from_idx >= 0 and to_idx < len(cal):
+            yield cal[from_idx: base_idx + 1].full.to_list(), cal[base_idx + 1: to_idx + 1].full.to_list()
+
+            base_idx += rolling_period
+            from_idx = base_idx - before + 1
+            to_idx = base_idx + after
