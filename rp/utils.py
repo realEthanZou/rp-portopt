@@ -273,35 +273,46 @@ def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_freq=0):
             to_idx = base_idx + after
 
 
-def get_universe():
-    if not Path('data/universe.h5').is_file():
-        acprcm = get_data('crsp', 'm', 'acprc', verbose=False)
-        dolvolm = get_data('crsp', 'm', 'dolvol', verbose=False)
-        capm = get_data('crsp', 'm', 'cap', verbose=False)
+def get_universe(before=60, n_sample=500, verbose=False):
+    key = f"before{before}_sample{n_sample}"
 
-        universe = []
-        for period_before, period_after in gen_trading_dates(year=2001, month=3, before=60, after=12, rolling_freq=12):
-            period = list(dict.fromkeys([x[:7] for x in period_before + period_after]))
+    if Path('data/universe.h5').is_file():
+        try:
+            if verbose:
+                print(f"Loading cache from data/universe.h5 for key='{key}'")
+                return pd.read_hdf('data/universe.h5', key=key)
 
-            acprc = acprcm.query("date in @period")
-            acprc = acprc[acprc > 0].dropna(axis=1)
-            mask = acprc.ge(acprc.quantile(0.1, axis=1), axis=0).all()
+        except KeyError:
+            if verbose:
+                print(f"No cache found at data/universe.h5 for key='{key}'")
+            pass
 
-            dolvol = dolvolm.query("date in @period")
-            dolvol = dolvol[dolvol > 0].dropna(axis=1)
-            mask = mask & dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()
+    acprcm = get_data('crsp', 'm', 'acprc', verbose=False)
+    dolvolm = get_data('crsp', 'm', 'dolvol', verbose=False)
+    capm = get_data('crsp', 'm', 'cap', verbose=False)
 
-            cap = capm.query("date in @period")
-            cap = cap[cap > 0].dropna(axis=1)
-            mask = mask & cap.ge(cap.quantile(0.2, axis=1), axis=0).all()
+    universe = []
+    for period_before, period_after in gen_trading_dates(year=2001, month=3, before=before, after=12, rolling_freq=12):
+        period = list(dict.fromkeys([x[:7] for x in period_before + period_after]))
 
-            universe.append(pd.Series(np.sort(mask[mask].sample(500, random_state=42).index.to_list()),
-                                      name=period_after[0][:7]))
+        acprc = acprcm.query("date in @period")
+        acprc = acprc[acprc > 0].dropna(axis=1)
+        mask = acprc.ge(acprc.quantile(0.1, axis=1), axis=0).all()
 
-        universe = pd.concat(universe, axis=1)
-        universe.to_hdf('data/universe.h5', key='default')
+        dolvol = dolvolm.query("date in @period")
+        dolvol = dolvol[dolvol > 0].dropna(axis=1)
+        mask = mask & dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()
 
-        return universe
+        cap = capm.query("date in @period")
+        cap = cap[cap > 0].dropna(axis=1)
+        mask = mask & cap.ge(cap.quantile(0.2, axis=1), axis=0).all()
 
-    else:
-        return pd.read_hdf('data/universe.h5', key='default')
+        universe.append(pd.Series(np.sort(mask[mask].sample(n_sample, random_state=42).index.to_list()),
+                                  name=period_after[0][:7]))
+    universe = pd.concat(universe, axis=1)
+
+    if verbose:
+        print(f"Saving cache to data/universe.h5 for key='{key}'")
+    universe.to_hdf('data/universe.h5', key=key)
+
+    return universe
