@@ -23,7 +23,7 @@ def get_raw_data(source, freq, verbose=True):
                 print('Loading from WRDS...')
             db = wrds.Connection(wrds_username='realethanzou')
             df = db.raw_sql(
-                f"select permno, date, prc, vol, ret, shrout, cfacpr from crspq.{freq}sf where date between '{START_DATE}' and '{END_DATE}'")
+                f"select permno, date, prc, vol, ret, shrout, cfacpr, cfacshr from crspq.{freq}sf where date between '{START_DATE}' and '{END_DATE}'")
             db.close()
 
             df.permno = df.permno.astype(int)
@@ -32,9 +32,9 @@ def get_raw_data(source, freq, verbose=True):
             elif freq == 'd':
                 df.date = df.date.apply(lambda x: x.strftime('%Y-%m-%d'))
             df['acprc'] = df.prc / df.cfacpr
-            df['dolvol'] = df.prc * df.vol
-            df['cap'] = df.prc * df.shrout
-            df = df.drop(['shrout', 'cfacpr'], axis=1)
+            df['dolvol'] = df.acprc * df.vol * df.cfacshr
+            df['cap'] = df.acprc * df.shrout * df.cfacshr
+            df = df.drop(['shrout', 'cfacpr', 'cfacshr'], axis=1)
 
             if verbose:
                 print(f"Saving cache to data/crsp_{freq}.h5 for key='raw'")
@@ -289,11 +289,11 @@ def get_universe():
 
             dolvol = dolvolm.query("date in @period")
             dolvol = dolvol[dolvol > 0].dropna(axis=1)
-            mask = mask[dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()]
+            mask = mask & dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()
 
             cap = capm.query("date in @period")
             cap = cap[cap > 0].dropna(axis=1)
-            mask = mask[cap.ge(cap.quantile(0.2, axis=1), axis=0).all()]
+            mask = mask & cap.ge(cap.quantile(0.2, axis=1), axis=0).all()
 
             universe.append(pd.Series(np.sort(mask[mask].sample(500, random_state=42).index.to_list()),
                                       name=period_after[0][:7]))
