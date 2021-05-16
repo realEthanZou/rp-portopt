@@ -1,13 +1,13 @@
 from .utils import get_data, get_universe, gen_trading_dates
 
 
-def gen_ret_data(year, month, day, before, after, rolling_freq):
+def gen_crsp_subset(key, year, month, day, before, after, rolling_freq):
     if day is None:
         freq = 'm'
     else:
         freq = 'd'
 
-    ret_master = get_data('crsp', freq, 'ret', verbose=False)
+    df_master = get_data('crsp', freq, key, verbose=False)
     universe_master = get_universe()
 
     for period_before, period_after in gen_trading_dates(year, month, day, before, after, rolling_freq):
@@ -17,10 +17,10 @@ def gen_ret_data(year, month, day, before, after, rolling_freq):
         except KeyError:
             pass
 
-        ret = ret_master[universe]
+        df = df_master[universe]
 
         if freq == 'm':
             period_before = list(dict.fromkeys([x[:7] for x in period_before]))
             period_after = list(dict.fromkeys([x[:7] for x in period_after]))
 
-        yield ret.query("date in @period_before"), ret.query("date in @period_after")
+        yield df.query("date in @period_before"), df.query("date in @period_after")
