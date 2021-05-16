@@ -234,10 +234,11 @@ def get_trading_dates(by='all', year=None, month=None, day=None, before=0, after
                 return cal[from_idx: base_idx + 1].full.to_list(), cal[base_idx + 1: to_idx + 1].full.to_list()
 
 
-def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_freq=0):
+def gen_trading_dates(year, month, day, before, after, rolling_freq):
     cal = get_raw_trading_dates()
     year, month, day = _is_date_valid(cal, year, month, day)
-    assert before != 0 or after != 0 and rolling_freq != 0
+    assert type(before) is int and type(after) is int and type(rolling_freq) is int
+    assert before > 0 and after > 0 and rolling_freq > 0
 
     if day is None:
         cal_orig = cal.copy()
@@ -292,7 +293,8 @@ def get_universe(before=120, n_sample=500, verbose=False):
     capm = get_data('crsp', 'm', 'cap', verbose=False)
 
     universe = []
-    for period_before, period_after in gen_trading_dates(year=2001, month=3, before=before, after=12, rolling_freq=12):
+    for period_before, period_after in gen_trading_dates(year=2001, month=3, day=None, before=before, after=12,
+                                                         rolling_freq=12):
         period = list(dict.fromkeys([x[:7] for x in period_before + period_after]))
 
         acprc = acprcm.query("date in @period")
