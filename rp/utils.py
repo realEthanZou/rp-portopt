@@ -273,7 +273,7 @@ def gen_trading_dates(year, month, day=None, before=0, after=0, rolling_freq=0):
             to_idx = base_idx + after
 
 
-def get_universe(before=60, n_sample=500, verbose=False):
+def get_universe(before=120, n_sample=500, verbose=False):
     key = f"before{before}_sample{n_sample}"
 
     if Path('data/universe.h5').is_file():
@@ -301,7 +301,7 @@ def get_universe(before=60, n_sample=500, verbose=False):
 
         dolvol = dolvolm.query("date in @period")
         dolvol = dolvol[dolvol > 0].dropna(axis=1)
-        mask = mask & dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()
+        mask = mask & dolvol.ge(dolvol.quantile(0.1, axis=1), axis=0).all()
 
         cap = capm.query("date in @period")
         cap = cap[cap > 0].dropna(axis=1)
