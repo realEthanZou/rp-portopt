@@ -7,6 +7,9 @@ def gen_crsp_subset(key, year, month, day, before, after, rolling_freq):
     else:
         freq = 'd'
 
+    if day == 'last':
+        day = None
+
     df_master = get_data('crsp', freq, key, verbose=False)
     universe_master = get_universe()
 
