@@ -12,9 +12,9 @@ def gen_crsp_subset(key, year, month, day, before, after, rolling_freq):
 
     df_master = get_data('crsp', freq, key, verbose=False)
     universe_master = get_universe()
+    universe = universe_master[f"{year}-04"]
 
     for period_before, period_after in gen_trading_dates(year, month, day, before, after, rolling_freq):
-        universe = universe_master[f"{year}-04"]
         try:
             universe = universe_master[period_after[-1][:7]].to_list()
         except KeyError:
