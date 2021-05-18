@@ -246,6 +246,7 @@ def gen_trading_dates(year, month, day, before, after, rolling_freq):
         base_idx = cal.query("year == @year and month == @month").index[0]
         from_idx = base_idx - before + 1
         to_idx = base_idx + after
+        assert from_idx >= 0 and to_idx < len(cal)
 
         while from_idx >= 0 and to_idx < len(cal):
             from_idx = cal_orig.query(
@@ -265,6 +266,7 @@ def gen_trading_dates(year, month, day, before, after, rolling_freq):
         base_idx = cal.query("year == @year and month == @month and day == @day").index[0]
         from_idx = base_idx - before + 1
         to_idx = base_idx + after
+        assert from_idx >= 0 and to_idx < len(cal)
 
         while from_idx >= 0 and to_idx < len(cal):
             yield cal[from_idx: base_idx + 1].full.to_list(), cal[base_idx + 1: to_idx + 1].full.to_list()
