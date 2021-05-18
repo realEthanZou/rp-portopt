@@ -281,7 +281,7 @@ def get_universe(before=120, n_sample=500, verbose=False):
         try:
             if verbose:
                 print(f"Loading cache from data/universe.h5 for key='{key}'")
-                return pd.read_hdf('data/universe.h5', key=key)
+            return pd.read_hdf('data/universe.h5', key=key)
 
         except KeyError:
             if verbose:
