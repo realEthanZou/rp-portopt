@@ -1,16 +1,19 @@
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import wrds
 
-START_DATE = '1990-01-01'
-END_DATE = '2021-03-31'
+WRDS_USERNAME = 'realethanzou'
+HISTORY_START_DATE = '1990-01-01'
+HISTORY_END_DATE = '2021-03-31'
+BACKTEST_START_DATE = '2001-03-30'  # first out-of-sample actually 1 day after this
 
 
 def get_raw_data(source, freq, verbose=True):
     """
-    Helper function to get data from WRDS
+    Helper function to get data from WRDS and handle cache
     :param source: wrds library name
     :param freq: 'm': monthly or 'd': daily
     :param verbose: whether print information
@@ -21,9 +24,9 @@ def get_raw_data(source, freq, verbose=True):
             if verbose:
                 print(f"No cache found at data/crsp_{freq}.h5")
                 print('Loading from WRDS...')
-            db = wrds.Connection(wrds_username='realethanzou')
+            db = wrds.Connection(wrds_username=WRDS_USERNAME)
             df = db.raw_sql(
-                f"select permno, date, prc, vol, ret, shrout, cfacpr, cfacshr from crspq.{freq}sf where date between '{START_DATE}' and '{END_DATE}'")
+                f"select permno, date, prc, vol, ret, shrout, cfacpr, cfacshr from crspq.{freq}sf where date between '{HISTORY_START_DATE}' and '{HISTORY_END_DATE}'")
             db.close()
 
             df.permno = df.permno.astype(int)
@@ -37,14 +40,14 @@ def get_raw_data(source, freq, verbose=True):
             df = df.drop(['shrout', 'cfacpr', 'cfacshr'], axis=1)
 
             if verbose:
-                print(f"Saving cache to data/crsp_{freq}.h5 for key='raw'")
+                print(f"Saving cache to data/crsp_{freq}.h5 with key='raw'")
             df.to_hdf(f"data/crsp_{freq}.h5", key='raw')
 
             return df
 
         else:
             if verbose:
-                print(f"Loading cache from data/crsp_{freq}.h5 for key='raw'")
+                print(f"Loading cache from data/crsp_{freq}.h5 with key='raw'")
             return pd.read_hdf(f'data/crsp_{freq}.h5', key='raw')
 
     elif source == 'ff':
@@ -59,9 +62,9 @@ def get_raw_data(source, freq, verbose=True):
             if verbose:
                 print(f"No cache found at data/ff_{freq}.h5")
                 print('Loading from WRDS...')
-            db = wrds.Connection(wrds_username='realethanzou')
+            db = wrds.Connection(wrds_username=WRDS_USERNAME)
             df = db.raw_sql(
-                f"select date, mktrf, smb, hml, rf, umd from ff.factors_{label} where date between '{START_DATE}' and '{END_DATE}'")
+                f"select date, mktrf, smb, hml, rf, umd from ff.factors_{label} where date between '{HISTORY_START_DATE}' and '{HISTORY_END_DATE}'")
             db.close()
 
             if freq == 'm':
@@ -70,14 +73,14 @@ def get_raw_data(source, freq, verbose=True):
                 df.date = df.date.apply(lambda x: x.strftime('%Y-%m-%d'))
 
             if verbose:
-                print(f"Saving cache to data/ff_{freq}.h5 for key='raw'")
+                print(f"Saving cache to data/ff_{freq}.h5 with key='raw'")
             df.to_hdf(f"data/ff_{freq}.h5", key='raw')
 
             return df
 
         else:
             if verbose:
-                print(f"Loading cache from data/ff_{freq}.h5 for key='raw'")
+                print(f"Loading cache from data/ff_{freq}.h5 with key='raw'")
             return pd.read_hdf(f"data/ff_{freq}.h5", key='raw')
 
     else:
@@ -99,19 +102,19 @@ def get_data(source, freq, key='raw', verbose=True):
 
         try:
             if verbose:
-                print(f"Loading cache from data/crsp_{freq}.h5 for key='{key}'")
+                print(f"Loading cache from data/crsp_{freq}.h5 with key='{key}'")
             return pd.read_hdf(f"data/crsp_{freq}.h5", key=key)
 
         except KeyError:
             if verbose:
-                print(f"No cache found at data/crsp_{freq}.h5 for key='{key}'")
+                print(f"No cache found at data/crsp_{freq}.h5 with key='{key}'")
 
             if key in ['ret', 'acprc', 'dolvol', 'cap']:
                 df = pd.read_hdf(f"data/crsp_{freq}.h5", 'raw')[['permno', 'date', key]]
                 df = df.pivot('date', 'permno', key)
 
                 if verbose:
-                    print(f"Saving cache to data/crsp_{freq}.h5 for key='{key}'")
+                    print(f"Saving cache to data/crsp_{freq}.h5 with key='{key}'")
                 df.to_hdf(f"data/crsp_{freq}.h5", key=key)
 
                 return df
@@ -124,7 +127,7 @@ def get_data(source, freq, key='raw', verbose=True):
             get_raw_data(source, freq)
 
         if verbose:
-            print(f"Loading cache from data/ff_{freq}.h5 for key='{key}'")
+            print(f"Loading cache from data/ff_{freq}.h5 with key='{key}'")
         return pd.read_hdf(f"data/ff_{freq}.h5", key=key)
 
     else:
@@ -149,7 +152,7 @@ def _is_date_valid(cal, year, month, day):
     if year is not None:
         assert isinstance(year, (int, str))
         year = int(year)
-        assert int(START_DATE[:4]) <= int(year) <= int(END_DATE[:4])
+        assert int(HISTORY_START_DATE[:4]) <= int(year) <= int(HISTORY_END_DATE[:4])
 
     if month is not None:
         assert isinstance(month, (int, str))
@@ -276,18 +279,18 @@ def gen_trading_dates(year, month, day, before, after, rolling_freq):
             to_idx = base_idx + after
 
 
-def get_universe(before=120, n_sample=500, verbose=False):
-    key = f"before{before}_sample{n_sample}"
+def get_universe(n_sample=500, seed=42, verbose=True):
+    key = f"sample{n_sample}_seed{seed}"
 
     if Path('data/universe.h5').is_file():
         try:
             if verbose:
-                print(f"Loading cache from data/universe.h5 for key='{key}'")
+                print(f"Loading cache from data/universe.h5 with key='{key}'")
             return pd.read_hdf('data/universe.h5', key=key)
 
         except KeyError:
             if verbose:
-                print(f"No cache found at data/universe.h5 for key='{key}'")
+                print(f"No cache found at data/universe.h5 with key='{key}'")
             pass
 
     acprcm = get_data('crsp', 'm', 'acprc', verbose=False)
@@ -295,28 +298,54 @@ def get_universe(before=120, n_sample=500, verbose=False):
     capm = get_data('crsp', 'm', 'cap', verbose=False)
 
     universe = []
-    for period_before, period_after in gen_trading_dates(year=2001, month=3, day=None, before=before, after=12,
-                                                         rolling_freq=12):
-        period = list(dict.fromkeys([x[:7] for x in period_before + period_after]))
+    for dates_before, dates_after in gen_trading_dates(year=BACKTEST_START_DATE[:4], month=BACKTEST_START_DATE[5:7],
+                                                       day=None, before=120, after=2, rolling_freq=12):
+        dates = list(dict.fromkeys([x[:7] for x in dates_before + dates_after]))
 
-        acprc = acprcm.query("date in @period")
+        acprc = acprcm.query("date in @dates")
         acprc = acprc[acprc > 0].dropna(axis=1)
         mask = acprc.ge(acprc.quantile(0.1, axis=1), axis=0).all()
 
-        dolvol = dolvolm.query("date in @period")
+        dolvol = dolvolm.query("date in @dates")
         dolvol = dolvol[dolvol > 0].dropna(axis=1)
         mask = mask & dolvol.ge(dolvol.quantile(0.1, axis=1), axis=0).all()
 
-        cap = capm.query("date in @period")
+        cap = capm.query("date in @dates")
         cap = cap[cap > 0].dropna(axis=1)
         mask = mask & cap.ge(cap.quantile(0.2, axis=1), axis=0).all()
 
-        universe.append(pd.Series(np.sort(mask[mask].sample(n_sample, random_state=42).index.to_list()),
-                                  name=period_after[0][:7]))
-    universe = pd.concat(universe, axis=1)
+        universe.append(
+            pd.Series(np.sort(mask[mask].sample(n_sample, random_state=seed).index.to_list()), name=dates_after[0][:7]))
 
+    universe = pd.concat(universe, axis=1)
     if verbose:
-        print(f"Saving cache to data/universe.h5 for key='{key}'")
+        print(f"Saving cache to data/universe.h5 with key='{key}'")
     universe.to_hdf('data/universe.h5', key=key)
 
     return universe
+
+
+def _is_psd(df_cov):
+    try:
+        np.linalg.cholesky(df_cov + 1e-16 * np.eye(len(df_cov)))
+        return True
+
+    except np.linalg.LinAlgError:
+        return False
+
+
+def fix_non_psd(df_cov, label, verbose=True):
+    if _is_psd(df_cov):
+        return df_cov
+
+    if verbose:
+        print(f"Fixing non-PSD covariance matrix @ {label}")
+    q, V = np.linalg.eigh(df_cov)
+    q = np.where(q > 0, q, 0)
+    fixed_matrix = V @ np.diag(q) @ V.T
+
+    if not _is_psd(fixed_matrix):
+        msg = f"FAILED to fix non-PSD covariance matrix @ {label}"
+        warnings.warn(msg)
+
+    return pd.DataFrame(fixed_matrix, index=df_cov.index, columns=df_cov.columns)
