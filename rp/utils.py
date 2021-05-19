@@ -340,9 +340,9 @@ def fix_non_psd(df_cov, label, verbose=True):
 
     if verbose:
         print(f"Fixing non-PSD covariance matrix @ {label}")
-    q, V = np.linalg.eigh(df_cov)
+    q, v = np.linalg.eigh(df_cov)
     q = np.where(q > 0, q, 0)
-    fixed_matrix = V @ np.diag(q) @ V.T
+    fixed_matrix = v @ np.diag(q) @ v.T
 
     if not _is_psd(fixed_matrix):
         msg = f"FAILED to fix non-PSD covariance matrix @ {label}"
