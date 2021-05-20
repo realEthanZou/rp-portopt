@@ -1,7 +1,7 @@
+import warnings
+
 import numpy as np
 import pandas as pd
-
-from .utils import fix_non_psd
 
 
 def get_risk_matrix(df_ret, method):
@@ -19,6 +19,32 @@ def get_risk_matrix(df_ret, method):
 
     else:
         raise ValueError
+
+
+def _is_psd(df_cov):
+    try:
+        np.linalg.cholesky(df_cov + 1e-16 * np.eye(len(df_cov)))
+        return True
+
+    except np.linalg.LinAlgError:
+        return False
+
+
+def fix_non_psd(df_cov, label, verbose=True):
+    if _is_psd(df_cov):
+        return df_cov
+
+    if verbose:
+        print(f"Fixing non-PSD covariance matrix @ {label}")
+    q, v = np.linalg.eigh(df_cov)
+    q = np.where(q > 0, q, 0)
+    fixed_matrix = v @ np.diag(q) @ v.T
+
+    if not _is_psd(fixed_matrix):
+        msg = f"FAILED to fix non-PSD covariance matrix @ {label}"
+        warnings.warn(msg)
+
+    return pd.DataFrame(fixed_matrix, index=df_cov.index, columns=df_cov.columns)
 
 
 def sample_covariance(df_ret):
