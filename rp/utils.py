@@ -327,7 +327,7 @@ def get_universe(n_sample=500, seed=42, verbose=True):
     return universe
 
 
-def gen_crsp_subset(key, year, month, day, before=1, after=1, rolling_freq=1, seed=42):
+def gen_crsp_subset(key, year, month, day, before=1, after=1, rolling_freq=1, n_sample=500, seed=42):
     if day is None:
         freq = 'm'
     else:
@@ -337,7 +337,7 @@ def gen_crsp_subset(key, year, month, day, before=1, after=1, rolling_freq=1, se
         day = None
 
     df_master = get_data('crsp', freq, key, verbose=False)
-    universe_master = get_universe(seed=seed, verbose=False)
+    universe_master = get_universe(n_sample=n_sample, seed=seed, verbose=False)
     universe = universe_master[f"{year}-04"]
 
     for period_before, period_after in gen_trading_dates(year, month, day, before, after, rolling_freq):

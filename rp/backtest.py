@@ -5,9 +5,9 @@ from .utils import gen_crsp_subset
 from .weights import get_weights
 
 
-def run_backtest(codename, lookback, seed=42):
-    ret_gen = gen_crsp_subset('ret', year=2001, month=3, day='last', before=lookback, seed=seed)
-    cap_gen = gen_crsp_subset('cap', year=2001, month=3, day='last', seed=seed)
+def run_backtest(codename, lookback, n_sample=500, seed=42):
+    ret_gen = gen_crsp_subset('ret', year=2001, month=3, day='last', before=lookback, n_sample=n_sample, seed=seed)
+    cap_gen = gen_crsp_subset('cap', year=2001, month=3, day='last', n_sample=n_sample, seed=seed)
 
     if codename != 'vw':
         weights = Parallel(n_jobs=16, prefer="threads", verbose=5)(delayed(get_weights)(
