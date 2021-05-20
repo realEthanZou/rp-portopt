@@ -35,8 +35,8 @@ def get_raw_data(source, freq, verbose=True):
             elif freq == 'd':
                 df.date = df.date.apply(lambda x: x.strftime('%Y-%m-%d'))
             df['acprc'] = df.prc / df.cfacpr
-            df['dolvol'] = df.acprc * df.vol * df.cfacshr
-            df['cap'] = df.acprc * df.shrout * df.cfacshr
+            df['dolvol'] = df.acprc * df.vol * df.cfacshr  # in hundreds for monthly data
+            df['cap'] = df.acprc * df.shrout * df.cfacshr  # in thousands
             df = df.drop(['shrout', 'cfacpr', 'cfacshr'], axis=1)
 
             if verbose:
@@ -293,6 +293,10 @@ def get_universe(n_sample=500, seed=42, verbose=True):
                 print(f"No cache found at data/universe.h5 with key='{key}'")
             pass
 
+    else:
+        if verbose:
+            print(f"No cache found at data/universe.h5")
+
     acprcm = get_data('crsp', 'm', 'acprc', verbose=False)
     dolvolm = get_data('crsp', 'm', 'dolvol', verbose=False)
     capm = get_data('crsp', 'm', 'cap', verbose=False)
@@ -304,15 +308,17 @@ def get_universe(n_sample=500, seed=42, verbose=True):
 
         acprc = acprcm.query("date in @dates")
         acprc = acprc[acprc > 0].dropna(axis=1)
-        mask = acprc.ge(acprc.quantile(0.1, axis=1), axis=0).all()
+        mask_acprc = acprc.ge(acprc.quantile(0.2, axis=1), axis=0).all()
 
         dolvol = dolvolm.query("date in @dates")
         dolvol = dolvol[dolvol > 0].dropna(axis=1)
-        mask = mask & dolvol.ge(dolvol.quantile(0.1, axis=1), axis=0).all()
+        mask_dolvol = dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()
 
         cap = capm.query("date in @dates")
         cap = cap[cap > 0].dropna(axis=1)
-        mask = mask & cap.ge(cap.quantile(0.2, axis=1), axis=0).all()
+        mask_cap = cap.ge(cap.quantile(0.2, axis=1), axis=0).all()
+
+        mask = mask_acprc & (mask_dolvol | mask_cap)
 
         universe.append(
             pd.Series(np.sort(mask[mask].sample(n_sample, random_state=seed).index.to_list()), name=dates_after[0][:7]))
