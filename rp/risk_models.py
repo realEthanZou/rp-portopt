@@ -49,7 +49,7 @@ def _linear_shrinkage_scaled_identity(df_ret):
     t, n = np.shape(x)
     x = x - x.mean(axis=0)
 
-    sample = np.cov(x, ddof=0, rowvar=False)
+    sample = x.T.dot(x) / t
     target = np.mean(np.diag(sample)) * np.eye(n)
 
     y = x ** 2
@@ -71,13 +71,14 @@ def _linear_shrinkage_single_factor(df_ret):
     x = np.nan_to_num(df_ret.values)
     t, n = np.shape(x)
     x = x - x.mean(axis=0)
-    xmkt = np.mean(x, axis=1).reshape(t, 1)
+    x_mkt = np.mean(x, axis=1).reshape(t, 1)
+    x_ext = np.append(x, x_mkt, axis=1)
 
-    sample = np.cov(np.append(x, xmkt, axis=1), ddof=0, rowvar=False)
-    covmkt = sample[:n, n].reshape(n, 1)
-    varmkt = sample[n, n]
+    sample = x_ext.T.dot(x_ext) / t
+    cov_mkt = sample[:n, n].reshape(n, 1)
+    var_mkt = sample[n, n]
     sample = sample[:n, :n]
-    target = covmkt.dot(covmkt.T) / varmkt
+    target = cov_mkt.dot(cov_mkt.T) / var_mkt
     target[np.eye(n) == 1] = np.diag(sample)
 
     y = x ** 2
@@ -85,14 +86,14 @@ def _linear_shrinkage_single_factor(df_ret):
     p = np.sum(p_arr)
     c = np.linalg.norm(sample - target, "fro") ** 2
 
-    rdiag = np.sum(y ** 2 / t) - np.sum(np.diag(sample) ** 2)
-    z = x * np.tile(xmkt, n)
-    v1 = 1 / t * y.T.dot(z) - np.tile(covmkt, n) * sample
-    roff1 = (np.sum(v1 * np.tile(covmkt, n).T) - np.sum(np.diag(v1) * covmkt.T)) / varmkt
-    v3 = 1 / t * z.T.dot(z) - varmkt * sample
-    roff3 = (np.sum(v3 * covmkt.dot(covmkt.T)) - np.sum(np.diag(v3).reshape(n, 1) * covmkt ** 2)) / varmkt ** 2
-    roff = 2 * roff1 - roff3
-    r = rdiag + roff
+    r_diag = np.sum(y ** 2 / t) - np.sum(np.diag(sample) ** 2)
+    z = x * np.tile(x_mkt, n)
+    v1 = 1 / t * y.T.dot(z) - np.tile(cov_mkt, n) * sample
+    r_off1 = (np.sum(v1 * np.tile(cov_mkt, n).T) - np.sum(np.diag(v1) * cov_mkt.T)) / var_mkt
+    v3 = 1 / t * z.T.dot(z) - var_mkt * sample
+    r_off3 = (np.sum(v3 * cov_mkt.dot(cov_mkt.T)) - np.sum(np.diag(v3).reshape(n, 1) * cov_mkt ** 2)) / var_mkt ** 2
+    r_off = 2 * r_off1 - r_off3
+    r = r_diag + r_off
 
     k = (p - r) / c
     delta = max(0., min(1., k / t))
@@ -109,10 +110,9 @@ def _linear_shrinkage_constant_corr(df_ret):
     t, n = np.shape(x)
     x = x - x.mean(axis=0)
 
-    sample = np.cov(x, ddof=0, rowvar=False)
+    sample = x.T.dot(x) / t
     var = np.diag(sample).reshape(n, 1)
     std = np.sqrt(var)
-    var_arr = np.tile(var, n)
     std_arr = np.tile(std, n)
     r_bar = (np.sum(sample / (std_arr * std_arr.T)) - n) / (n * (n - 1))
     target = r_bar * std_arr * std_arr.T
@@ -123,13 +123,7 @@ def _linear_shrinkage_constant_corr(df_ret):
     p = np.sum(p_arr)
     c = np.linalg.norm(sample - target, "fro") ** 2
 
-    term1 = (x ** 3).T.dot(x) / t
-    help_ = x.T.dot(x) / t
-    help_diag = np.diag(help_).reshape(n, 1)
-    term2 = np.tile(help_diag, n) * sample
-    term3 = help_ * var_arr
-    term4 = var_arr * sample
-    theta_arr = term1 - term2 - term3 + term4
+    theta_arr = (x ** 3).T.dot(x) / t - np.tile(np.diag(sample).reshape(n, 1), n) * sample
     theta_arr[np.eye(n) == 1] = np.zeros(n)
     r = np.trace(p_arr) + r_bar * np.sum((1. / std).dot(std.T) * theta_arr)
 
