@@ -327,7 +327,7 @@ def get_universe(n_sample=500, seed=42, verbose=True):
     return universe
 
 
-def gen_crsp_subset(key, year, month, day, before, after, rolling_freq, seed=42):
+def gen_crsp_subset(key, year, month, day, before=1, after=1, rolling_freq=1, seed=42):
     if day is None:
         freq = 'm'
     else:
