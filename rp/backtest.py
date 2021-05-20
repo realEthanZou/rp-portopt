@@ -1,21 +1,34 @@
 import pandas as pd
+from joblib import Parallel, delayed
 
 from .utils import gen_crsp_subset
 from .weights import get_weights
 
 
 def run_backtest(codename, lookback, seed=42):
-    all_weights = []
+    ret_gen = gen_crsp_subset('ret', year=2001, month=3, day='last', before=lookback, seed=seed)
+    cap_gen = gen_crsp_subset('cap', year=2001, month=3, day='last', seed=seed)
 
-    for df_before, df_after in gen_crsp_subset('ret', year=2001, month=3, day='last', before=lookback, after=1,
-                                               rolling_freq=1, seed=seed):
-        weights = get_weights(codename, df_ret=df_before)
-        all_weights.append(weights)
+    if codename != 'vw':
+        weights = Parallel(n_jobs=16, prefer="threads", verbose=5)(delayed(get_weights)(
+            codename, df_ret=df_before, label=df_after.index[0][:7]) for df_before, df_after in ret_gen)
 
-    df_weights = pd.concat(all_weights).fillna(0)
+    else:
+        weights = Parallel(n_jobs=16, prefer="threads", verbose=5)(delayed(get_weights)(
+            codename, df_ret=None, df_cap=df_before, label=df_after.index[0][:7]) for df_before, df_after in cap_gen)
+
+    df_weights = pd.concat(weights).fillna(0)
     turnover = calc_turnover(df_weights)
 
     return turnover
+
+
+def calc_variance():
+    pass
+
+
+def calc_sharpe():
+    pass
 
 
 def calc_turnover(df_weights):
