@@ -22,12 +22,14 @@ def get_risk_matrix(df_ret, method):
 
 
 def sample_covariance(df_ret):
-    return fix_non_psd(df_ret.cov(), df_ret.index[-1])
+    x = np.nan_to_num(df_ret.values)
+    sample_cov = np.cov(x, rowvar=False)
+    return fix_non_psd(pd.DataFrame(sample_cov, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
 
 
 def linear_shrinkage(df_ret, target):
     if target == 'scaled_identity':
-        return _linear_shrinkage_constant_corr(df_ret)
+        return _linear_shrinkage_scaled_identity(df_ret)
 
     elif target == 'single_factor':
         return _linear_shrinkage_single_factor(df_ret)
@@ -124,12 +126,12 @@ def _linear_shrinkage_constant_corr(df_ret):
     term1 = (x ** 3).T.dot(x) / t
     help_ = x.T.dot(x) / t
     help_diag = np.diag(help_).reshape(n, 1)
-    term2 = np.tile(help_diag, n).T * sample
+    term2 = np.tile(help_diag, n) * sample
     term3 = help_ * var_arr
     term4 = var_arr * sample
     theta_arr = term1 - term2 - term3 + term4
     theta_arr[np.eye(n) == 1] = np.zeros(n)
-    r = sum(np.diag(p_arr)) + r_bar * np.sum((1. / std).dot(std.T) * theta_arr)
+    r = np.trace(p_arr) + r_bar * np.sum((1. / std).dot(std.T) * theta_arr)
 
     k = (p - r) / c
     delta = max(0., min(1., k / t))
