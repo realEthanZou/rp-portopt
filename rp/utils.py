@@ -5,6 +5,8 @@ import pandas as pd
 import wrds
 
 WRDS_USERNAME = 'realethanzou'
+BACKTEST_START_YEAR = 2001
+BACKTEST_START_MONTH = 3
 
 
 def get_raw_data(source, freq, verbose=True):
@@ -298,8 +300,8 @@ def get_universe(n_sample=500, seed=42, verbose=True):
     capm = get_data('crsp', 'm', 'cap', verbose=False)
 
     universe = []
-    for dates_before, dates_after in gen_trading_dates(year=2001, month=3, day=None, before=120, after=2,
-                                                       rolling_freq=12):
+    for dates_before, dates_after in gen_trading_dates(year=BACKTEST_START_YEAR, month=BACKTEST_START_MONTH, day=None,
+                                                       before=120, after=2, rolling_freq=12):
         dates = list(dict.fromkeys([x[:7] for x in dates_before + dates_after]))
 
         acprc = acprcm.query("date in @dates")
