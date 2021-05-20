@@ -10,17 +10,19 @@ def run_backtest(codename, lookback, n_sample=500, seed=42):
     cap_gen = gen_crsp_subset('cap', year=2001, month=3, day='last', n_sample=n_sample, seed=seed)
 
     if codename != 'vw':
-        weights = Parallel(n_jobs=16, prefer="threads", verbose=5)(delayed(get_weights)(
+        weights = Parallel(n_jobs=-1, verbose=1)(delayed(get_weights)(
             codename, df_ret=df_before, label=df_after.index[0][:7]) for df_before, df_after in ret_gen)
 
     else:
-        weights = Parallel(n_jobs=16, prefer="threads", verbose=5)(delayed(get_weights)(
+        weights = Parallel(n_jobs=-1, verbose=1)(delayed(get_weights)(
             codename, df_ret=None, df_cap=df_before, label=df_after.index[0][:7]) for df_before, df_after in cap_gen)
 
     df_weights = pd.concat(weights).fillna(0)
     turnover = calc_turnover(df_weights)
 
-    return turnover
+    print(f"turnover: {turnover:f}")
+
+    return
 
 
 def calc_variance():

@@ -23,6 +23,24 @@ def get_weights(codename, df_ret, label='weights', df_cap=None):
 
         return pd.DataFrame(weights, index=[label], columns=df_ret.columns)
 
+    elif codename == 'lssi':
+        df_cov, delta = get_risk_matrix(df_ret, method='ls_scaled_identity')
+        weights = min_var_unconstrained(df_cov.values)
+
+        return pd.DataFrame(weights, index=[label], columns=df_ret.columns)
+
+    elif codename == 'lssf':
+        df_cov, delta = get_risk_matrix(df_ret, method='ls_single_factor')
+        weights = min_var_unconstrained(df_cov.values)
+
+        return pd.DataFrame(weights, index=[label], columns=df_ret.columns)
+
+    elif codename == 'lscc':
+        df_cov, delta = get_risk_matrix(df_ret, method='ls_constant_corr')
+        weights = min_var_unconstrained(df_cov.values)
+
+        return pd.DataFrame(weights, index=[label], columns=df_ret.columns)
+
     else:
         raise ValueError
 
