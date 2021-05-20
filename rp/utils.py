@@ -5,9 +5,6 @@ import pandas as pd
 import wrds
 
 WRDS_USERNAME = 'realethanzou'
-HISTORY_START_DATE = '1990-01-01'
-HISTORY_END_DATE = '2021-03-31'
-BACKTEST_START_DATE = '2001-03-30'  # first out-of-sample actually 1 day after this
 
 
 def get_raw_data(source, freq, verbose=True):
@@ -25,7 +22,7 @@ def get_raw_data(source, freq, verbose=True):
                 print('Loading from WRDS...')
             db = wrds.Connection(wrds_username=WRDS_USERNAME)
             df = db.raw_sql(
-                f"select permno, date, prc, vol, ret, shrout, cfacpr, cfacshr from crspq.{freq}sf where date between '{HISTORY_START_DATE}' and '{HISTORY_END_DATE}'")
+                f"select permno, date, prc, vol, ret, shrout, cfacpr, cfacshr from crspq.{freq}sf where date between '1990-01-01' and '2021-03-31'")
             db.close()
 
             df.permno = df.permno.astype(int)
@@ -63,7 +60,7 @@ def get_raw_data(source, freq, verbose=True):
                 print('Loading from WRDS...')
             db = wrds.Connection(wrds_username=WRDS_USERNAME)
             df = db.raw_sql(
-                f"select date, mktrf, smb, hml, rf, umd from ff.factors_{label} where date between '{HISTORY_START_DATE}' and '{HISTORY_END_DATE}'")
+                f"select date, mktrf, smb, hml, rf, umd from ff.factors_{label} where date between '1990-01-01' and '2021-03-31'")
             db.close()
 
             if freq == 'm':
@@ -151,7 +148,7 @@ def _is_date_valid(cal, year, month, day):
     if year is not None:
         assert isinstance(year, (int, str))
         year = int(year)
-        assert int(HISTORY_START_DATE[:4]) <= int(year) <= int(HISTORY_END_DATE[:4])
+        assert 1990 <= int(year) <= 2021
 
     if month is not None:
         assert isinstance(month, (int, str))
@@ -301,8 +298,8 @@ def get_universe(n_sample=500, seed=42, verbose=True):
     capm = get_data('crsp', 'm', 'cap', verbose=False)
 
     universe = []
-    for dates_before, dates_after in gen_trading_dates(year=BACKTEST_START_DATE[:4], month=BACKTEST_START_DATE[5:7],
-                                                       day=None, before=120, after=2, rolling_freq=12):
+    for dates_before, dates_after in gen_trading_dates(year=2001, month=3, day=None, before=120, after=2,
+                                                       rolling_freq=12):
         dates = list(dict.fromkeys([x[:7] for x in dates_before + dates_after]))
 
         acprc = acprcm.query("date in @dates")
