@@ -9,7 +9,7 @@ from .utils import gen_crsp_subset, BACKTEST_START_YEAR, BACKTEST_START_MONTH
 
 
 def get_weights(codename, lookback, holding, freq, n_sample, seed, verbose=True):
-    fn_weights = f"lookback{lookback}{freq}_holding{holding}{freq}_sample{n_sample}_seed{seed}"
+    key = f"lookback{lookback}{freq}_holding{holding}{freq}_sample{n_sample}_seed{seed}"
 
     if freq == 'm':
         day = 'last'
@@ -18,20 +18,20 @@ def get_weights(codename, lookback, holding, freq, n_sample, seed, verbose=True)
     else:
         raise ValueError
 
-    if Path(f"weights/{fn_weights}.h5").is_file():
+    if Path(f"weights/{codename}.h5").is_file():
         try:
             if verbose:
-                print(f"Loading cache from weights/{fn_weights}.h5 with codename='{codename}'")
-            return pd.read_hdf(f"weights/{fn_weights}.h5", key=codename)
+                print(f"Loading cache from weights/{codename}.h5 with key='{key}'")
+            return pd.read_hdf(f"weights/{codename}.h5", key=key)
 
         except KeyError:
             if verbose:
-                print(f"No cache found at weights/{fn_weights}.h5 with codename='{codename}'")
+                print(f"No cache found at weights/{codename}.h5 with key='{key}'")
             pass
 
     else:
         if verbose:
-            print(f"No cache found at weights/{fn_weights}.h5")
+            print(f"No cache found at weights/{codename}.h5")
 
     ret_gen = gen_crsp_subset('ret', year=BACKTEST_START_YEAR, month=BACKTEST_START_MONTH, day=day, before=lookback,
                               after=holding, rolling_freq=holding, n_sample=n_sample, seed=seed)
@@ -57,14 +57,14 @@ def get_weights(codename, lookback, holding, freq, n_sample, seed, verbose=True)
     if freq == 'm':
         df_weights = df_weights.set_index(df_weights.reset_index().iloc[:, 0].apply(lambda x: x[:7]))
     if verbose:
-        print(f"Saving cache to weights/{fn_weights}.h5 with codename='{codename}'")
-    df_weights.to_hdf(f"weights/{fn_weights}.h5", key=codename)
+        print(f"Saving cache to weights/{codename}.h5 with key='{key}'")
+    df_weights.to_hdf(f"weights/{codename}.h5", key=key)
 
     if codename[:2] == 'ls':
         df_deltas = pd.DataFrame(deltas, index=df_weights.index, columns=['delta'])
         if verbose:
-            print(f"Saving cache to weights/{fn_weights}.h5 with codename='{codename}_deltas'")
-            df_deltas.to_hdf(f"weights/{fn_weights}.h5", key=f"{codename}_deltas")
+            print(f"Saving cache to weights/{codename}_deltas.h5 with key='{key}'")
+            df_deltas.to_hdf(f"weights/{codename}_deltas.h5", key=key)
 
     return df_weights
 
