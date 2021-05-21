@@ -1,4 +1,6 @@
 /.idea
 /.ipynb_checkpoints/
-/data
 /venv
+/data
+/weights
+/results
