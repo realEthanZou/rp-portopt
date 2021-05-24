@@ -2,7 +2,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
 
 from .models import get_risk_matrix
 from .utils import gen_crsp_subset
@@ -10,6 +9,10 @@ from .utils import gen_crsp_subset
 
 def get_results(codename, year, month, lookback, holding, freq, n_sample, seed, verbose=True):
     key = f"lookback{lookback}{freq}_holding{holding}{freq}_sample{n_sample}_seed{seed}"
+
+    if codename in ['ew', 'vw']:
+        lookback = 1
+        key = f"holding{holding}{freq}_sample{n_sample}_seed{seed}"
 
     if freq == 'm':
         day = 'last'
@@ -40,14 +43,16 @@ def get_results(codename, year, month, lookback, holding, freq, n_sample, seed, 
                               seed=seed)
 
     if codename == 'vw':
-        results = Parallel(n_jobs=-1, verbose=verbose)(delayed(
-            calc_weights_and_returns)(codename, df_before=tuple_ret[0], df_after=tuple_ret[1], df_cap=tuple_cap[0]
-        ) for tuple_ret, tuple_cap in zip(ret_gen, cap_gen))
+        results = [
+            calc_weights_and_returns(codename, df_before=tuple_ret[0], df_after=tuple_ret[1], df_cap=tuple_cap[0])
+            for tuple_ret, tuple_cap in zip(ret_gen, cap_gen)
+        ]
 
     else:
-        results = Parallel(n_jobs=-1, verbose=verbose)(delayed(
-            calc_weights_and_returns)(codename, df_before=df_before, df_after=df_after
-        ) for df_before, df_after in ret_gen)
+        results = [
+            calc_weights_and_returns(codename, df_before=df_before, df_after=df_after)
+            for df_before, df_after in ret_gen
+        ]
 
     weights = [x[0] for x in results]
     df_weights = pd.concat(weights).fillna(0)
