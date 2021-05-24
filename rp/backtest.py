@@ -1,42 +1,21 @@
 import numpy as np
 
-from .utils import gen_crsp_subset, BACKTEST_START_YEAR, BACKTEST_START_MONTH
-from .weights import get_weights
+from .optimise import get_results
+from .utils import BACKTEST_START_YEAR, BACKTEST_START_MONTH
 
 
 def run_backtest(codename, lookback=120, holding=1, freq='m', n_sample=500, seed=42, verbose=True):
-    df_weights = get_weights(codename=codename, lookback=lookback, holding=holding, freq=freq, n_sample=n_sample,
-                             seed=seed, verbose=verbose)
+    df_weights, df_returns = get_results(
+        codename=codename, year=BACKTEST_START_YEAR, month=BACKTEST_START_MONTH, lookback=lookback, holding=holding,
+        freq=freq, n_sample=n_sample, seed=seed, verbose=verbose)
 
-    returns = _calc_returns(df_weights, lookback=lookback, holding=holding, freq=freq, n_sample=n_sample, seed=seed)
+    returns = df_returns.returns.to_list()
     variance = np.var(returns, ddof=1)
     sharpe = np.mean(returns) / np.std(returns, ddof=1)
     turnover = calc_turnover(df_weights)
     print(f"variance: {variance:f}, sharpe: {sharpe:f}, turnover: {turnover:f}")
 
-    return
-
-
-def _calc_returns(df_weights, lookback, holding, freq, n_sample, seed):
-    if freq == 'm':
-        day = 'last'
-    elif freq == 'd':
-        day = 30
-    else:
-        raise ValueError
-
-    ret_gen = gen_crsp_subset('ret', year=BACKTEST_START_YEAR, month=BACKTEST_START_MONTH, day=day, before=lookback,
-                              after=holding, rolling_freq=holding, n_sample=n_sample, seed=seed)
-
-    idx = 0
-    returns = []
-    for _, df_after in ret_gen:
-        df_return = (df_after.fillna(0) + 1).prod() - 1
-        ret = (df_weights.iloc[idx][df_return.index] * df_return).sum()
-        returns.append(ret)
-        idx += 1
-
-    return returns
+    return variance, sharpe, turnover
 
 
 def calc_turnover(df_weights):
