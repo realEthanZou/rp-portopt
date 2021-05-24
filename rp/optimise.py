@@ -61,14 +61,14 @@ def get_results(codename, year, month, lookback, holding, freq, n_sample, seed, 
     df_returns = pd.DataFrame(returns, index=df_weights.index, columns=['returns'])
     if verbose:
         print(f"Saving cache to results/{codename}_returns.h5 with key='{key}'")
-        df_returns.to_hdf(f"results/{codename}_returns.h5", key=key)
+    df_returns.to_hdf(f"results/{codename}_returns.h5", key=key)
 
     if codename[:2] == 'ls':
         deltas = [x[2] for x in results]
         df_deltas = pd.DataFrame(deltas, index=df_weights.index, columns=['delta'])
         if verbose:
             print(f"Saving cache to weights/{codename}_deltas.h5 with key='{key}'")
-            df_deltas.to_hdf(f"weights/{codename}_deltas.h5", key=key)
+        df_deltas.to_hdf(f"weights/{codename}_deltas.h5", key=key)
 
     return df_weights, df_returns
 
