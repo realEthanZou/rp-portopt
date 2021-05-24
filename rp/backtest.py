@@ -9,8 +9,8 @@ def run_backtest(codename, lookback=120, holding=1, freq='m', n_sample=500, seed
                              seed=seed, verbose=verbose)
 
     returns = _calc_returns(df_weights, lookback=lookback, holding=holding, freq=freq, n_sample=n_sample, seed=seed)
-    variance = np.var(returns)
-    sharpe = np.mean(returns) / np.std(returns)
+    variance = np.var(returns, ddof=1)
+    sharpe = np.mean(returns) / np.std(returns, ddof=1)
     turnover = calc_turnover(df_weights)
     print(f"variance: {variance:f}, sharpe: {sharpe:f}, turnover: {turnover:f}")
 
