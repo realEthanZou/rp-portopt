@@ -295,28 +295,30 @@ def get_universe(n_sample=500, seed=42, verbose=True):
         if verbose:
             print(f"No cache found at data/universe.h5")
 
-    acprcm = get_data('crsp', 'm', 'acprc', verbose=False)
-    dolvolm = get_data('crsp', 'm', 'dolvol', verbose=False)
-    capm = get_data('crsp', 'm', 'cap', verbose=False)
+    acprcm = get_data('crsp', 'd', 'acprc', verbose=False)
+    dolvolm = get_data('crsp', 'd', 'dolvol', verbose=False)
+    capm = get_data('crsp', 'd', 'cap', verbose=False)
 
     universe = []
     for dates_before, dates_after in gen_trading_dates(year=BACKTEST_START_YEAR, month=BACKTEST_START_MONTH, day=None,
                                                        before=120, after=2, rolling_freq=12):
-        dates = list(dict.fromkeys([x[:7] for x in dates_before + dates_after]))
+        dates = dates_before + dates_after
 
         acprc = acprcm.query("date in @dates")
-        acprc = acprc[acprc > 0].dropna(axis=1)
-        mask_acprc = acprc.ge(acprc.quantile(0.2, axis=1), axis=0).all()
+        mask = (acprc > 0).sum() >= len(acprc) - 10
+        valid_permnos = mask[mask].index.values
+        mask_acprc = acprc.ge(acprc[valid_permnos].quantile(0.2, axis=1), axis=0)
+        mask_acprc = mask_acprc.sum() >= len(acprc) - 10
 
         dolvol = dolvolm.query("date in @dates")
-        dolvol = dolvol[dolvol > 0].dropna(axis=1)
-        mask_dolvol = dolvol.ge(dolvol.quantile(0.2, axis=1), axis=0).all()
+        mask_dolvol = dolvol.ge(dolvol[valid_permnos].quantile(0.2, axis=1), axis=0)
+        mask_dolvol = mask_dolvol.sum() >= len(dolvol) - 10
 
         cap = capm.query("date in @dates")
-        cap = cap[cap > 0].dropna(axis=1)
-        mask_cap = cap.ge(cap.quantile(0.2, axis=1), axis=0).all()
+        mask_cap = cap.ge(cap[valid_permnos].quantile(0.2, axis=1), axis=0)
+        mask_cap = mask_cap.sum() >= len(cap) - 10
 
-        mask = mask_acprc & (mask_dolvol | mask_cap)
+        mask = mask & mask_acprc & (mask_dolvol | mask_cap)
 
         universe.append(
             pd.Series(np.sort(mask[mask].sample(n_sample, random_state=seed).index.to_list()), name=dates_after[0][:7]))
