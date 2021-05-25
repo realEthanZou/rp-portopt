@@ -7,7 +7,7 @@ from .models import get_risk_matrix
 from .utils import gen_crsp_subset
 
 
-def get_results(codename, year, month, lookback, holding, freq, n_sample, seed, verbose=True):
+def get_optimise_results(codename, year, month, lookback, holding, freq, n_sample, seed, verbose=True):
     key = f"lookback{lookback}{freq}_holding{holding}{freq}_sample{n_sample}_seed{seed}"
 
     if codename in ['ew', 'vw']:
