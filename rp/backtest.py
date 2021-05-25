@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
@@ -15,25 +13,35 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
     results = Parallel(n_jobs=-1, verbose=verbose)(delayed(run_backtest)(
         codename=codename, lookback=lookback, seed=seed, verbose=verbose) for lookback in lookbacks for seed in seeds)
 
-    variances = [x[0] for x in results]
-    sharpes = [x[1] for x in results]
-    turnovers = [x[2] for x in results]
+    returns = [x[0] for x in results]
+    variances = [x[1] for x in results]
+    sharpes = [x[2] for x in results]
+    turnovers = [x[3] for x in results]
 
     idx = 0
     dfs = []
     for lookback in lookbacks:
-        key = f"lookback{lookback}{freq}_holding{holding}{freq}_sample{n_sample}"
+        if codename in ['ew', 'vw']:
+            key = f"holding{holding}{freq}_sample{n_sample}"
+        else:
+            key = f"lookback{lookback}{freq}_holding{holding}{freq}_sample{n_sample}"
+
+        df_results = pd.DataFrame()
+        df_results.name = key
         for seed in seeds:
-            _save_results(variances[idx], codename=codename, label='variance', key=key, seed=seed)
-            _save_results(sharpes[idx], codename=codename, label='sharpe', key=key, seed=seed)
-            _save_results(turnovers[idx], codename=codename, label='turnover', key=key, seed=seed)
+            df_results.loc['return', f"seed{seed}"] = returns[idx]
+            df_results.loc['variance', f"seed{seed}"] = variances[idx]
+            df_results.loc['sharpe', f"seed{seed}"] = sharpes[idx]
+            df_results.loc['turnover', f"seed{seed}"] = turnovers[idx]
             idx += 1
 
-        df_results = pd.read_hdf(f"results/{codename}.h5", key=key)
-        df_results.name = key
+        df_results['avg'] = df_results.mean(axis=1)
         dfs.append(df_results)
 
-    return dfs
+    df_results = pd.DataFrame({df.name: df.avg for df in dfs})
+    df_results.name = codename
+
+    return df_results
 
 
 def run_backtest(codename, lookback=120, holding=1, freq='m', n_sample=500, seed=42, verbose=True):
@@ -44,36 +52,20 @@ def run_backtest(codename, lookback=120, holding=1, freq='m', n_sample=500, seed
         codename=codename, year=BACKTEST_START_YEAR, month=BACKTEST_START_MONTH, lookback=lookback, holding=holding,
         freq=freq, n_sample=n_sample, seed=seed, verbose=verbose)
 
-    returns = df_returns.returns.to_list()
-    variance = np.var(returns, ddof=1)
-    sharpe = np.mean(returns) / np.std(returns, ddof=1)
-    turnover = calc_turnover(df_weights)
-
-    return variance, sharpe, turnover
-
-
-def calc_turnover(df_weights):
-    df_diff = df_weights.shift(1) - df_weights
-    df_diff.iloc[0] = df_weights.iloc[0]
-    turnover = df_diff.abs().mean().sum()
-
-    return turnover
-
-
-def _save_results(data, codename, label, key, seed):
-    assert label in ['variance', 'sharpe', 'turnover']
-
-    results_path = f"results/{codename}.h5"
-    df_results = None
-    if Path(results_path).is_file():
-        try:
-            df_results = pd.read_hdf(results_path, key=key)
-        except KeyError:
-            pass
-
-    if df_results is None:
-        df_results = pd.DataFrame(data, index=[label], columns=[f"seed{seed}"])
+    if freq == 'm':
+        af = 12 / holding
+    elif freq == 'd':
+        af = 252 / holding
     else:
-        df_results.loc[label, f"seed{seed}"] = data
+        raise ValueError
 
-    df_results.to_hdf(results_path, key=key)
+    returns = df_returns.returns.to_list()
+    mean_return = np.mean(returns) * af
+    variance = np.var(returns, ddof=1) * af
+    sharpe = np.mean(returns) / np.std(returns, ddof=1) * np.sqrt(af)
+
+    df_diff = df_weights.shift(1) - df_weights
+    df_diff = df_diff.iloc[1:]
+    turnover = df_diff.abs().mean().sum() * af
+
+    return mean_return, variance, sharpe, turnover
