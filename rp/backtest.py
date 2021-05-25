@@ -12,7 +12,7 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
     if codename in ['ew', 'vw']:
         lookbacks = [1]
 
-    results = Parallel(n_jobs=-1, verbose=5)(delayed(run_backtest)(
+    results = Parallel(n_jobs=-1, verbose=verbose)(delayed(run_backtest)(
         codename=codename, lookback=lookback, seed=seed, verbose=verbose) for lookback in lookbacks for seed in seeds)
 
     variances = [x[0] for x in results]
@@ -24,9 +24,9 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
     for lookback in lookbacks:
         key = f"lookback{lookback}{freq}_holding{holding}{freq}_sample{n_sample}"
         for seed in seeds:
-            _save_results(variances[idx], codename=codename, label='variance', key=key, seed=seed, verbose=verbose)
-            _save_results(sharpes[idx], codename=codename, label='sharpe', key=key, seed=seed, verbose=verbose)
-            _save_results(turnovers[idx], codename=codename, label='turnover', key=key, seed=seed, verbose=verbose)
+            _save_results(variances[idx], codename=codename, label='variance', key=key, seed=seed)
+            _save_results(sharpes[idx], codename=codename, label='sharpe', key=key, seed=seed)
+            _save_results(turnovers[idx], codename=codename, label='turnover', key=key, seed=seed)
             idx += 1
 
         df_results = pd.read_hdf(f"results/{codename}.h5", key=key)
@@ -60,7 +60,7 @@ def calc_turnover(df_weights):
     return turnover
 
 
-def _save_results(data, codename, label, key, seed, verbose=True):
+def _save_results(data, codename, label, key, seed):
     assert label in ['variance', 'sharpe', 'turnover']
 
     results_path = f"results/{codename}.h5"
@@ -76,6 +76,4 @@ def _save_results(data, codename, label, key, seed, verbose=True):
     else:
         df_results.loc[label, f"seed{seed}"] = data
 
-    if verbose:
-        print(f"Saving {label} to {results_path} with key='{key}'")
     df_results.to_hdf(results_path, key=key)
