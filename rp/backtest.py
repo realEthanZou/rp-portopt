@@ -10,7 +10,12 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
     if codename in ['ew', 'vw']:
         lookbacks = [1]
 
-    results = Parallel(n_jobs=-1, verbose=verbose)(delayed(run_backtest)(
+    if verbose:
+        parallel_verbose = 5
+    else:
+        parallel_verbose = False
+
+    results = Parallel(n_jobs=-1, verbose=parallel_verbose)(delayed(run_backtest)(
         codename=codename, lookback=lookback, seed=seed, verbose=verbose) for lookback in lookbacks for seed in seeds)
 
     returns = [x[0] for x in results]

@@ -8,6 +8,9 @@ def get_risk_matrix(df_ret, method):
     if method == 'sample':
         return sample_covariance(df_ret)
 
+    elif method == 'single_factor':
+        return single_factor(df_ret)
+
     elif method == 'ls_scaled_identity':
         return linear_shrinkage(df_ret, target='scaled_identity')
 
@@ -54,6 +57,23 @@ def sample_covariance(df_ret):
     cov_sample = x.T.dot(x) / t
 
     return fix_non_psd(pd.DataFrame(cov_sample, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
+
+
+def single_factor(df_ret):
+    x = np.nan_to_num(df_ret.values)
+    t, n = np.shape(x)
+    x = x - x.mean(axis=0)
+    x_mkt = np.mean(x, axis=1).reshape(t, 1)
+    x_ext = np.append(x, x_mkt, axis=1)
+
+    cov_sample = x_ext.T.dot(x_ext) / t
+    cov_mkt = cov_sample[:n, n].reshape(n, 1)
+    var_mkt = cov_sample[n, n]
+    cov_sample = cov_sample[:n, :n]
+    cov_sf = cov_mkt.dot(cov_mkt.T) / var_mkt
+    cov_sf[np.eye(n) == 1] = np.diag(cov_sample)
+
+    return fix_non_psd(pd.DataFrame(cov_sf, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
 
 
 def linear_shrinkage(df_ret, target):
