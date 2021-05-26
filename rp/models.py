@@ -49,8 +49,11 @@ def fix_non_psd(df_cov, label, verbose=True):
 
 def sample_covariance(df_ret):
     x = np.nan_to_num(df_ret.values)
-    sample_cov = np.cov(x, rowvar=False)
-    return fix_non_psd(pd.DataFrame(sample_cov, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
+    t, n = np.shape(x)
+    x = x - x.mean(axis=0)
+    cov_sample = x.T.dot(x) / t
+
+    return fix_non_psd(pd.DataFrame(cov_sample, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
 
 
 def linear_shrinkage(df_ret, target):
@@ -75,17 +78,17 @@ def _linear_shrinkage_scaled_identity(df_ret):
     t, n = np.shape(x)
     x = x - x.mean(axis=0)
 
-    sample = x.T.dot(x) / t
-    target = np.mean(np.diag(sample)) * np.eye(n)
+    cov_sample = x.T.dot(x) / t
+    cov_tgt = np.mean(np.diag(cov_sample)) * np.eye(n)
 
     y = x ** 2
-    p_arr = y.T.dot(y) / t - sample ** 2
+    p_arr = y.T.dot(y) / t - cov_sample ** 2
     p = np.sum(p_arr)
-    c = np.linalg.norm(sample - target, "fro") ** 2
+    c = np.linalg.norm(cov_sample - cov_tgt, "fro") ** 2
 
     k = p / c
     delta = max(0., min(1., k / t))
-    shrunk_cov = delta * target + (1 - delta) * sample
+    shrunk_cov = delta * cov_tgt + (1 - delta) * cov_sample
 
     return fix_non_psd(pd.DataFrame(shrunk_cov, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1]), delta
 
@@ -100,30 +103,30 @@ def _linear_shrinkage_single_factor(df_ret):
     x_mkt = np.mean(x, axis=1).reshape(t, 1)
     x_ext = np.append(x, x_mkt, axis=1)
 
-    sample = x_ext.T.dot(x_ext) / t
-    cov_mkt = sample[:n, n].reshape(n, 1)
-    var_mkt = sample[n, n]
-    sample = sample[:n, :n]
-    target = cov_mkt.dot(cov_mkt.T) / var_mkt
-    target[np.eye(n) == 1] = np.diag(sample)
+    cov_sample = x_ext.T.dot(x_ext) / t
+    cov_mkt = cov_sample[:n, n].reshape(n, 1)
+    var_mkt = cov_sample[n, n]
+    cov_sample = cov_sample[:n, :n]
+    cov_tgt = cov_mkt.dot(cov_mkt.T) / var_mkt
+    cov_tgt[np.eye(n) == 1] = np.diag(cov_sample)
 
     y = x ** 2
-    p_arr = y.T.dot(y) / t - sample ** 2
+    p_arr = y.T.dot(y) / t - cov_sample ** 2
     p = np.sum(p_arr)
-    c = np.linalg.norm(sample - target, "fro") ** 2
+    c = np.linalg.norm(cov_sample - cov_tgt, "fro") ** 2
 
-    r_diag = np.sum(y ** 2 / t) - np.sum(np.diag(sample) ** 2)
+    r_diag = np.sum(y ** 2 / t) - np.sum(np.diag(cov_sample) ** 2)
     z = x * np.tile(x_mkt, n)
-    v1 = 1 / t * y.T.dot(z) - np.tile(cov_mkt, n) * sample
+    v1 = 1 / t * y.T.dot(z) - np.tile(cov_mkt, n) * cov_sample
     r_off1 = (np.sum(v1 * np.tile(cov_mkt, n).T) - np.sum(np.diag(v1) * cov_mkt.T)) / var_mkt
-    v3 = 1 / t * z.T.dot(z) - var_mkt * sample
+    v3 = 1 / t * z.T.dot(z) - var_mkt * cov_sample
     r_off3 = (np.sum(v3 * cov_mkt.dot(cov_mkt.T)) - np.sum(np.diag(v3).reshape(n, 1) * cov_mkt ** 2)) / var_mkt ** 2
     r_off = 2 * r_off1 - r_off3
     r = r_diag + r_off
 
     k = (p - r) / c
     delta = max(0., min(1., k / t))
-    shrunk_cov = delta * target + (1 - delta) * sample
+    shrunk_cov = delta * cov_tgt + (1 - delta) * cov_sample
 
     return fix_non_psd(pd.DataFrame(shrunk_cov, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1]), delta
 
@@ -136,25 +139,25 @@ def _linear_shrinkage_constant_corr(df_ret):
     t, n = np.shape(x)
     x = x - x.mean(axis=0)
 
-    sample = x.T.dot(x) / t
-    var = np.diag(sample).reshape(n, 1)
+    cov_sample = x.T.dot(x) / t
+    var = np.diag(cov_sample).reshape(n, 1)
     std = np.sqrt(var)
     std_arr = np.tile(std, n)
-    r_bar = (np.sum(sample / (std_arr * std_arr.T)) - n) / (n * (n - 1))
-    target = r_bar * std_arr * std_arr.T
-    target[np.eye(n) == 1] = var.reshape(n)
+    r_bar = (np.sum(cov_sample / (std_arr * std_arr.T)) - n) / (n * (n - 1))
+    cov_tgt = r_bar * std_arr * std_arr.T
+    cov_tgt[np.eye(n) == 1] = var.reshape(n)
 
     y = x ** 2
-    p_arr = y.T.dot(y) / t - sample ** 2
+    p_arr = y.T.dot(y) / t - cov_sample ** 2
     p = np.sum(p_arr)
-    c = np.linalg.norm(sample - target, "fro") ** 2
+    c = np.linalg.norm(cov_sample - cov_tgt, "fro") ** 2
 
-    theta_arr = (x ** 3).T.dot(x) / t - np.tile(np.diag(sample).reshape(n, 1), n) * sample
+    theta_arr = (x ** 3).T.dot(x) / t - np.tile(np.diag(cov_sample).reshape(n, 1), n) * cov_sample
     theta_arr[np.eye(n) == 1] = np.zeros(n)
     r = np.trace(p_arr) + r_bar * np.sum((1. / std).dot(std.T) * theta_arr)
 
     k = (p - r) / c
     delta = max(0., min(1., k / t))
-    shrunk_cov = delta * target + (1 - delta) * sample
+    shrunk_cov = delta * cov_tgt + (1 - delta) * cov_sample
 
     return fix_non_psd(pd.DataFrame(shrunk_cov, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1]), delta
