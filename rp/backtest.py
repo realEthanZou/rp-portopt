@@ -15,8 +15,10 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
     else:
         parallel_verbose = False
 
-    results = Parallel(n_jobs=-1, verbose=parallel_verbose)(delayed(run_backtest)(
-        codename=codename, lookback=lookback, seed=seed, verbose=verbose) for lookback in lookbacks for seed in seeds)
+    results = Parallel(n_jobs=-2, verbose=parallel_verbose)(
+        delayed(run_backtest)(codename, lookback, holding, freq, n_sample, seed, verbose)
+        for lookback in lookbacks for seed in seeds
+    )
 
     returns = [x[0] for x in results]
     variances = [x[1] for x in results]
@@ -49,13 +51,12 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
     return df_results
 
 
-def run_backtest(codename, lookback=120, holding=1, freq='m', n_sample=500, seed=42, verbose=True):
+def run_backtest(codename, lookback, holding, freq, n_sample, seed, verbose=True):
     if codename in ['ew', 'vw']:
         lookback = 1
 
-    df_weights, df_returns = get_optimise_results(
-        codename=codename, year=BACKTEST_START_YEAR, month=BACKTEST_START_MONTH, lookback=lookback, holding=holding,
-        freq=freq, n_sample=n_sample, seed=seed, verbose=verbose)
+    df_weights, df_returns = get_optimise_results(codename, BACKTEST_START_YEAR, BACKTEST_START_MONTH, lookback,
+                                                  holding, freq, n_sample, seed, verbose)
 
     if freq == 'm':
         af = 12 / holding
