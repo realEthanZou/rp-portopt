@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import cvxpy as cp
 import numpy as np
 import pandas as pd
 
@@ -44,7 +45,8 @@ def get_optimise_results(codename, year, month, lookback, holding, freq, n_sampl
 
     if codename == 'vw':
         results = [
-            calc_weights_and_returns(codename, df_before=tuple_ret[0], df_after=tuple_ret[1], df_cap=tuple_cap[0])
+            calc_weights_and_returns(codename, df_before=tuple_ret[0], df_after=tuple_ret[1],
+                                     df_cap=tuple_cap[0])
             for tuple_ret, tuple_cap in zip(ret_gen, cap_gen)
         ]
 
@@ -79,6 +81,15 @@ def get_optimise_results(codename, year, month, lookback, holding, freq, n_sampl
 
 
 def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
+    codename = codename.split('_')
+    if len(codename) == 1:
+        constraint = None
+    elif len(codename) == 2:
+        constraint = codename[1]
+    else:
+        raise ValueError
+    codename = codename[0]
+
     delta = np.nan
 
     if codename == 'ew':
@@ -89,28 +100,26 @@ def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
         cap = df_cap.fillna(0).tail(1).values
         weights = cap / np.sum(cap)
 
-    elif codename == 'mvu':
-        df_cov = get_risk_matrix(df_before, method='sample')
-        weights = min_var_unconstrained(df_cov.values)
-
-    elif codename == 'sf':
-        df_cov = get_risk_matrix(df_before, method='single_factor')
-        weights = min_var_unconstrained(df_cov.values)
-
-    elif codename == 'lssi':
-        df_cov, delta = get_risk_matrix(df_before, method='ls_scaled_identity')
-        weights = min_var_unconstrained(df_cov.values)
-
-    elif codename == 'lssf':
-        df_cov, delta = get_risk_matrix(df_before, method='ls_single_factor')
-        weights = min_var_unconstrained(df_cov.values)
-
-    elif codename == 'lscc':
-        df_cov, delta = get_risk_matrix(df_before, method='ls_constant_corr')
-        weights = min_var_unconstrained(df_cov.values)
-
     else:
-        raise ValueError
+        if codename == 'mv':
+            df_cov = get_risk_matrix(df_before, method='sample')
+        elif codename == 'sf':
+            df_cov = get_risk_matrix(df_before, method='single_factor')
+        elif codename == 'lssi':
+            df_cov, delta = get_risk_matrix(df_before, method='ls_scaled_identity')
+        elif codename == 'lssf':
+            df_cov, delta = get_risk_matrix(df_before, method='ls_single_factor')
+        elif codename == 'lscc':
+            df_cov, delta = get_risk_matrix(df_before, method='ls_constant_corr')
+        else:
+            raise ValueError
+
+        if constraint is None:
+            weights = min_var_unconstrained(df_cov.values)
+        elif constraint == 'long':
+            weights = min_var_long(df_cov.values)
+        else:
+            raise ValueError
 
     df_weights = pd.DataFrame(weights, index=[df_after.index[0]], columns=df_before.columns)
     df_return = (df_after.fillna(0) + 1).prod() - 1
@@ -118,7 +127,6 @@ def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
 
     if codename[:2] == 'ls':
         return df_weights, ret, delta
-
     else:
         return df_weights, ret
 
@@ -127,5 +135,16 @@ def min_var_unconstrained(cov):
     n = cov.shape[1]
     weights = np.linalg.solve(cov, np.ones(n))
     weights = weights / np.sum(weights)
+
+    return weights.reshape(1, n)
+
+
+def min_var_long(cov):
+    n = cov.shape[1]
+    weights = cp.Variable(n)
+    var = cp.quad_form(weights, cov)
+    prob = cp.Problem(cp.Minimize(var), [cp.sum(weights) == 1, weights >= 0])
+    prob.solve()
+    weights = weights.value
 
     return weights.reshape(1, n)
