@@ -98,7 +98,7 @@ def pca_k_factors(df_ret, k):
     d = np.maximum(d, np.percentile(d, 5))
     cov_pca = bfb + np.diag(d)
 
-    for epoch in range(100):
+    for epoch in range(200):
         s_prev = s[:k]
         d_invsq = np.diag(1 / np.sqrt(d))
         d_sq = np.diag(np.sqrt(d))
@@ -116,8 +116,8 @@ def pca_k_factors(df_ret, k):
         if err < 1e-4:
             break
 
-        if epoch == 99:
-            warnings.warn('Joreskog did not converge after 100 epochs!')
+        if epoch == 199:
+            warnings.warn('Joreskog did not converge after 200 iterations!')
 
     return fix_non_psd(pd.DataFrame(cov_pca, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
 
