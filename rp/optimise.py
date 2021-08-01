@@ -3,6 +3,7 @@ from pathlib import Path
 import cvxpy as cp
 import numpy as np
 import pandas as pd
+from cvxpy.atoms.affine.wraps import psd_wrap
 
 from .models import get_risk_matrix
 from .utils import gen_crsp_subset
@@ -146,7 +147,7 @@ def min_var_unconstrained(cov):
 def min_var_long(cov):
     n = cov.shape[1]
     weights = cp.Variable(n)
-    var = cp.quad_form(weights, cov)
+    var = cp.quad_form(weights, psd_wrap(cov))  # cvxpy issue #1424 workaround
     prob = cp.Problem(cp.Minimize(var), [cp.sum(weights) == 1, weights >= 0])
     prob.solve()
     weights = weights.value
