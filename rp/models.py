@@ -11,6 +11,9 @@ def get_risk_matrix(df_ret, method):
     elif method == 'single_factor':
         return single_factor(df_ret)
 
+    elif method == 'pca_3factors':
+        return pca_3factors(df_ret)
+
     elif method == 'ls_scaled_identity':
         return linear_shrinkage(df_ret, target='scaled_identity')
 
@@ -74,6 +77,47 @@ def single_factor(df_ret):
     cov_sf[np.eye(n) == 1] = np.diag(cov_sample)
 
     return fix_non_psd(pd.DataFrame(cov_sf, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
+
+
+def pca_3factors(df_ret):
+    x = np.nan_to_num(df_ret)
+    t, n = np.shape(x)
+    x = x - x.mean(axis=0)
+    cov = x.T.dot(x) / t
+    var = np.diag(cov)
+
+    s, u = np.linalg.eigh(cov)
+    s = s[::-1]
+    u = u[:, ::-1]
+
+    k = 3
+    bfb = u[:, :k] @ np.diag(s[:k]) @ u[:, :k].T
+    d = var - np.diag(bfb)
+    d = np.maximum(d, np.percentile(d, 5))
+    cov_pca = bfb + np.diag(d)
+
+    for epoch in range(100):
+        s_prev = s[:k]
+        d_invsq = np.diag(1 / np.sqrt(d))
+        d_sq = np.diag(np.sqrt(d))
+
+        s, u = np.linalg.eigh(d_invsq @ cov @ d_invsq)
+        s = s[::-1]
+        u = u[:, ::-1]
+
+        bfb = d_sq @ u[:, :k] @ np.diag(s[:k] - 1) @ u[:, :k].T @ d_sq
+        d = var - np.diag(bfb)
+        d = np.maximum(d, np.percentile(d, 5))
+        cov_pca = bfb + np.diag(d)
+
+        err = np.max(np.abs(s_prev - s[:k]))
+        if err < 1e-4:
+            break
+
+        if epoch == 99:
+            warnings.warn('Joreskog did not converge after 100 epochs!')
+
+    return fix_non_psd(pd.DataFrame(cov_pca, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
 
 
 def linear_shrinkage(df_ret, target):

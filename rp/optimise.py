@@ -105,6 +105,8 @@ def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
             df_cov = get_risk_matrix(df_before, method='sample')
         elif codename == 'sf':
             df_cov = get_risk_matrix(df_before, method='single_factor')
+        elif codename == 'pca3':
+            df_cov = get_risk_matrix(df_before, method='pca_3factors')
         elif codename == 'lssi':
             df_cov, delta = get_risk_matrix(df_before, method='ls_scaled_identity')
         elif codename == 'lssf':
