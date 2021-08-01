@@ -6,7 +6,7 @@ from .optimise import get_optimise_results
 from .utils import BACKTEST_START_YEAR, BACKTEST_START_MONTH
 
 
-def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, verbose=True):
+def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, n_jobs=-2, verbose=True):
     if codename in ['ew', 'vw']:
         lookbacks = [1]
 
@@ -15,7 +15,7 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
     else:
         parallel_verbose = False
 
-    results = Parallel(n_jobs=-2, verbose=parallel_verbose)(
+    results = Parallel(n_jobs=n_jobs, verbose=parallel_verbose)(
         delayed(run_backtest)(codename, lookback, holding, freq, n_sample, seed, verbose)
         for lookback in lookbacks for seed in seeds
     )
