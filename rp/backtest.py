@@ -11,7 +11,7 @@ def get_backtest_results(codename, lookbacks, holding, freq, n_sample, seeds, ve
         lookbacks = [1]
 
     if verbose:
-        parallel_verbose = 10
+        parallel_verbose = 5
     else:
         parallel_verbose = False
 
