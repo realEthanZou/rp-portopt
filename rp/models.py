@@ -11,8 +11,11 @@ def get_risk_matrix(df_ret, method):
     elif method == 'single_factor':
         return single_factor(df_ret)
 
-    elif method == 'pca_3factors':
-        return pca_3factors(df_ret)
+    elif method == 'pca_3_factors':
+        return pca_k_factors(df_ret, k=3)
+
+    elif method == 'pca_7_factors':
+        return pca_k_factors(df_ret, k=7)
 
     elif method == 'ls_scaled_identity':
         return linear_shrinkage(df_ret, target='scaled_identity')
@@ -79,7 +82,7 @@ def single_factor(df_ret):
     return fix_non_psd(pd.DataFrame(cov_sf, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
 
 
-def pca_3factors(df_ret):
+def pca_k_factors(df_ret, k):
     x = np.nan_to_num(df_ret)
     t, n = np.shape(x)
     x = x - x.mean(axis=0)
@@ -90,7 +93,6 @@ def pca_3factors(df_ret):
     s = s[::-1]
     u = u[:, ::-1]
 
-    k = 3
     bfb = u[:, :k] @ np.diag(s[:k]) @ u[:, :k].T
     d = var - np.diag(bfb)
     d = np.maximum(d, np.percentile(d, 5))
