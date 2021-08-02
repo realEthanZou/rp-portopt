@@ -14,6 +14,9 @@ def get_risk_matrix(df_ret, method):
     elif method == 'pca_3_factors':
         return pca_k_factors(df_ret, k=3)
 
+    elif method == 'pca_5_factors':
+        return pca_k_factors(df_ret, k=5)
+
     elif method == 'pca_7_factors':
         return pca_k_factors(df_ret, k=7)
 
