@@ -126,7 +126,19 @@ def get_data(source, freq, key='raw', verbose=True):
 
         if verbose:
             print(f"Loading cache from data/ff_{freq}.h5 with key='{key}'")
-        return pd.read_hdf(f"data/ff_{freq}.h5", key=key)
+        df_ff = pd.read_hdf(f"data/ff_{freq}.h5", key='raw')
+
+        if key == 'raw':
+            return df_ff
+
+        elif key == 'ff3':
+            return df_ff[['date', 'mktrf', 'smb', 'hml']].set_index('date')
+
+        elif key == 'ca4':
+            return df_ff[['date', 'mktrf', 'smb', 'hml', 'umd']].set_index('date')
+
+        else:
+            raise ValueError
 
     else:
         raise ValueError
@@ -352,6 +364,25 @@ def gen_crsp_subset(key, year, month, day, before=1, after=1, rolling_freq=1, n_
 
         df = df_master[universe]
 
+        if freq == 'm':
+            period_before = list(dict.fromkeys([x[:7] for x in period_before]))
+            period_after = list(dict.fromkeys([x[:7] for x in period_after]))
+
+        yield df.query("date in @period_before"), df.query("date in @period_after")
+
+
+def gen_ff_subset(key, year, month, day, before=1, after=1, rolling_freq=1, n_sample=500, seed=42):
+    if day is None:
+        freq = 'm'
+    else:
+        freq = 'd'
+
+    if day == 'last':
+        day = None
+
+    df = get_data('ff', freq, key, verbose=False)
+
+    for period_before, period_after in gen_trading_dates(year, month, day, before, after, rolling_freq):
         if freq == 'm':
             period_before = list(dict.fromkeys([x[:7] for x in period_before]))
             period_after = list(dict.fromkeys([x[:7] for x in period_after]))
