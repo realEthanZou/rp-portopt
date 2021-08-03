@@ -382,9 +382,8 @@ def gen_ff_subset(key, year, month, day, before=1, after=1, rolling_freq=1, n_sa
 
     df = get_data('ff', freq, key, verbose=False)
 
-    for period_before, period_after in gen_trading_dates(year, month, day, before, after, rolling_freq):
+    for period_before, _ in gen_trading_dates(year, month, day, before, after, rolling_freq):
         if freq == 'm':
             period_before = list(dict.fromkeys([x[:7] for x in period_before]))
-            period_after = list(dict.fromkeys([x[:7] for x in period_after]))
 
-        yield df.query("date in @period_before"), df.query("date in @period_after")
+        yield df.query("date in @period_before")

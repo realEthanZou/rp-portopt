@@ -2,14 +2,18 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LinearRegression
 
 
-def get_risk_matrix(df_ret, method):
+def get_risk_matrix(df_ret, method, **kwargs):
     if method == 'sample':
         return sample_covariance(df_ret)
 
     elif method == 'single_factor':
         return single_factor(df_ret)
+
+    elif method == 'ff_3_factors':
+        return multi_factor(df_ret, kwargs.get('df_ff'))
 
     elif method == 'pca_3_factors':
         return pca_k_factors(df_ret, k=3)
@@ -83,6 +87,21 @@ def single_factor(df_ret):
     cov_sf[np.eye(n) == 1] = np.diag(cov_sample)
 
     return fix_non_psd(pd.DataFrame(cov_sf, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
+
+
+def multi_factor(df_ret, df_factor):
+    x = np.nan_to_num(df_ret.values)
+    t, n = np.shape(x)
+    x = x - x.mean(axis=0)
+    fac = df_factor.values
+
+    cov_fac = fac.T @ fac / t
+    regs = [LinearRegression().fit(fac, x[:, idx]) for idx in range(n)]
+    coefs = np.array([reg.coef_ for reg in regs]).T
+    var_res = np.var([x[:, idx] - reg.predict(fac) for idx, reg in enumerate(regs)], axis=1)
+    cov_mf = coefs.T @ cov_fac @ coefs + np.diag(var_res)
+
+    return fix_non_psd(pd.DataFrame(cov_mf, index=df_ret.columns, columns=df_ret.columns), df_ret.index[-1])
 
 
 def pca_k_factors(df_ret, k):

@@ -6,7 +6,7 @@ import pandas as pd
 from cvxpy.atoms.affine.wraps import psd_wrap
 
 from .models import get_risk_matrix
-from .utils import gen_crsp_subset
+from .utils import gen_crsp_subset, gen_ff_subset
 
 
 def get_optimise_results(codename, year, month, lookback, holding, freq, n_sample, seed, verbose=True):
@@ -41,14 +41,21 @@ def get_optimise_results(codename, year, month, lookback, holding, freq, n_sampl
 
     ret_gen = gen_crsp_subset('ret', year=year, month=month, day=day, before=lookback, after=holding,
                               rolling_freq=holding, n_sample=n_sample, seed=seed)
-    cap_gen = gen_crsp_subset('cap', year=year, month=month, day=day, rolling_freq=holding, n_sample=n_sample,
-                              seed=seed)
 
     if codename == 'vw':
+        cap_gen = gen_crsp_subset('cap', year=year, month=month, day=day, rolling_freq=holding, n_sample=n_sample,
+                                  seed=seed)
         results = [
-            calc_weights_and_returns(codename, df_before=tuple_ret[0], df_after=tuple_ret[1],
-                                     df_cap=tuple_cap[0])
+            calc_weights_and_returns(codename, df_before=None, df_after=tuple_ret[1], df_cap=tuple_cap[0])
             for tuple_ret, tuple_cap in zip(ret_gen, cap_gen)
+        ]
+
+    elif codename.split('_')[0] in ['ff3', 'ca4']:
+        ff_gen = gen_ff_subset(codename.split('_')[0], year=year, month=month, day=day, before=lookback, after=holding,
+                               rolling_freq=holding, n_sample=n_sample, seed=seed)
+        results = [
+            calc_weights_and_returns(codename, df_before=tuple_ret[0], df_after=tuple_ret[1], df_ff=df_ff)
+            for tuple_ret, df_ff in zip(ret_gen, ff_gen)
         ]
 
     else:
@@ -81,7 +88,7 @@ def get_optimise_results(codename, year, month, lookback, holding, freq, n_sampl
     return df_weights, df_returns
 
 
-def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
+def calc_weights_and_returns(codename, df_before, df_after, **kwargs):
     codename = codename.split('_')
     if len(codename) == 1:
         constraint = None
@@ -98,7 +105,7 @@ def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
         weights = (np.ones((1, n)) / n)
 
     elif codename == 'vw':
-        cap = df_cap.fillna(0).tail(1).values
+        cap = kwargs.get('df_cap').fillna(0).tail(1).values
         weights = cap / np.sum(cap)
 
     else:
@@ -106,6 +113,8 @@ def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
             df_cov = get_risk_matrix(df_before, method='sample')
         elif codename == 'sf':
             df_cov = get_risk_matrix(df_before, method='single_factor')
+        elif codename in ['ff3', 'ca4']:
+            df_cov = get_risk_matrix(df_before, df_ff=kwargs.get('df_ff'), method='ff_3_factors')
         elif codename == 'pca3':
             df_cov = get_risk_matrix(df_before, method='pca_3_factors')
         elif codename == 'pca5':
@@ -128,7 +137,7 @@ def calc_weights_and_returns(codename, df_before, df_after, df_cap=None):
         else:
             raise ValueError
 
-    df_weights = pd.DataFrame(weights, index=[df_after.index[0]], columns=df_before.columns)
+    df_weights = pd.DataFrame(weights, index=[df_after.index[0]], columns=df_after.columns)
     df_return = (df_after.fillna(0) + 1).prod() - 1
     ret = np.sum((df_weights * df_return).values)
 
