@@ -208,7 +208,7 @@ def _linear_shrinkage_single_factor(df_ret):
     v1 = 1 / t * y.T @ z - np.tile(cov_mkt, n) * cov_sample
     r_off1 = (np.sum(v1 * np.tile(cov_mkt, n).T) - np.sum(np.diag(v1) * cov_mkt.T)) / var_mkt
     v3 = 1 / t * z.T @ z - var_mkt * cov_sample
-    r_off3 = (np.sum(v3 * cov_mkt @ cov_mkt.T) - np.sum(np.diag(v3).reshape(n, 1) * cov_mkt ** 2)) / var_mkt ** 2
+    r_off3 = (np.sum(v3 * (cov_mkt @ cov_mkt.T)) - np.sum(np.diag(v3).reshape(n, 1) * cov_mkt ** 2)) / var_mkt ** 2
     r_off = 2 * r_off1 - r_off3
     r = r_diag + r_off
 
