@@ -15,14 +15,8 @@ def get_risk_matrix(df_ret, method, **kwargs):
     elif method == 'ff_3_factors':
         return multi_factor(df_ret, kwargs.get('df_ff'))
 
-    elif method == 'pca_3_factors':
-        return pca_k_factors(df_ret, k=3)
-
-    elif method == 'pca_5_factors':
-        return pca_k_factors(df_ret, k=5)
-
-    elif method == 'pca_7_factors':
-        return pca_k_factors(df_ret, k=7)
+    elif method.split('_')[0] == 'pca':
+        return pca_k_factors(df_ret, k=int(method.split('_')[1]))
 
     elif method == 'ls_scaled_identity':
         return linear_shrinkage(df_ret, target='scaled_identity')

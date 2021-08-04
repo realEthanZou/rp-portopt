@@ -115,12 +115,8 @@ def calc_weights_and_returns(codename, df_before, df_after, **kwargs):
             df_cov = get_risk_matrix(df_before, method='single_factor')
         elif codename in ['ff3', 'ca4']:
             df_cov = get_risk_matrix(df_before, df_ff=kwargs.get('df_ff'), method='ff_3_factors')
-        elif codename == 'pca3':
-            df_cov = get_risk_matrix(df_before, method='pca_3_factors')
-        elif codename == 'pca5':
-            df_cov = get_risk_matrix(df_before, method='pca_5_factors')
-        elif codename == 'pca7':
-            df_cov = get_risk_matrix(df_before, method='pca_7_factors')
+        elif codename[:3] == 'pca':
+            df_cov = get_risk_matrix(df_before, method=f"pca_{codename[3:]}_factors")
         elif codename == 'lssi':
             df_cov, delta = get_risk_matrix(df_before, method='ls_scaled_identity')
         elif codename == 'lssf':
